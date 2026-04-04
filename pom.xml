@@ -53,6 +53,10 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Note: DevTools is NOT included here — it conflicts with WebFlux/Netty
+             (Netty doesn't release the port fast enough for DevTools auto-restart).
+             For gateway changes: stop (Ctrl+C) and re-run. -->
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

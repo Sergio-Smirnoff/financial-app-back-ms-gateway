@@ -14,52 +14,99 @@ spring:
             allowed-headers: '*'
             allow-credentials: true
       routes:
+        # ── Business routes ──────────────────────────────────────────────────
         - id: users-auth
-          uri: ${USERS_SERVICE_URL:http://service-users:8081}
+          uri: ${USERS_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/auth/**
 
         - id: users-service
-          uri: ${USERS_SERVICE_URL:http://service-users:8081}
+          uri: ${USERS_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/users/**
 
         - id: finances-service
-          uri: ${FINANCES_SERVICE_URL:http://service-finances:8082}
+          uri: ${FINANCES_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/v1/finances/**
 
         - id: cards-service
-          uri: ${CARDS_SERVICE_URL:http://service-cards:8083}
+          uri: ${CARDS_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/cards/**
 
         - id: notifications-service
-          uri: ${NOTIFICATIONS_SERVICE_URL:http://service-notifications:8084}
+          uri: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/v1/notifications/**
 
         - id: upload-service
-          uri: ${UPLOAD_SERVICE_URL:http://service-upload:8085}
+          uri: ${UPLOAD_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/v1/upload/**
 
+        # ── API-docs proxy routes (so browser can reach them via localhost:8080)
+        - id: users-api-docs
+          uri: ${USERS_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/v3/api-docs/users
+          filters:
+            - RewritePath=/v3/api-docs/users, /v3/api-docs
+
+        - id: finances-api-docs
+          uri: ${FINANCES_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/v3/api-docs/finances
+          filters:
+            - RewritePath=/v3/api-docs/finances, /v3/api-docs
+
+        - id: cards-api-docs
+          uri: ${CARDS_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/v3/api-docs/cards
+          filters:
+            - RewritePath=/v3/api-docs/cards, /v3/api-docs
+
+        - id: notifications-api-docs
+          uri: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/v3/api-docs/notifications
+          filters:
+            - RewritePath=/v3/api-docs/notifications, /v3/api-docs
+
+        - id: upload-api-docs
+          uri: ${UPLOAD_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/v3/api-docs/upload
+          filters:
+            - RewritePath=/v3/api-docs/upload, /v3/api-docs
+
 jwt:
-  secret: ${JWT_SECRET}
+  # Set JWT_ENABLED=true only after ms-users (auth service) is implemented
+  enabled: ${JWT_ENABLED:false}
+  secret: ${JWT_SECRET:dGhpcyBpcyBhIGRldmVsb3BtZW50IHBsYWNlaG9sZGVyIHNlY3JldA==}
+
+rate-limit:
+  requests-per-minute: ${RATE_LIMIT_RPM:60}
+
+services:
+  finances-url: ${FINANCES_SERVICE_URL:http://localhost:8082}
+  cards-url: ${CARDS_SERVICE_URL:http://localhost:8083}
+  notifications-url: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
     urls:
       - name: Users Service
-        url: ${USERS_SERVICE_URL:http://service-users:8081}/v3/api-docs
+        url: /v3/api-docs/users
       - name: Finances Service
-        url: ${FINANCES_SERVICE_URL:http://service-finances:8082}/v3/api-docs
+        url: /v3/api-docs/finances
       - name: Cards Service
-        url: ${CARDS_SERVICE_URL:http://service-cards:8083}/v3/api-docs
+        url: /v3/api-docs/cards
       - name: Notifications Service
-        url: ${NOTIFICATIONS_SERVICE_URL:http://service-notifications:8084}/v3/api-docs
+        url: /v3/api-docs/notifications
       - name: Upload Service
-        url: ${UPLOAD_SERVICE_URL:http://service-upload:8085}/v3/api-docs
+        url: /v3/api-docs/upload
   api-docs:
     path: /v3/api-docs

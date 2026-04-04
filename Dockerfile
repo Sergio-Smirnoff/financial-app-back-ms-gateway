@@ -1,7 +1,7 @@
 # Build stage
 # Build context must be ./back (set in docker-compose.yml)
 # so this Dockerfile can access both financial-app-parent/ and ms-gateway/
-FROM eclipse-temurin:25-jdk AS build
+FROM eclipse-temurin:21-jdk AS build
 
 WORKDIR /build
 
@@ -20,7 +20,7 @@ COPY ms-gateway/src ms-gateway/src
 RUN mvn -f ms-gateway/pom.xml clean package -DskipTests -q
 
 # Runtime stage
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
