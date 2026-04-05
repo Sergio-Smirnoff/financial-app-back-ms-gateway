@@ -54,10 +54,19 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
     private Mono<Void> writeError(ServerWebExchange exchange, HttpStatus status, String message) {
         try {
             byte[] bytes = objectMapper.writeValueAsBytes(ApiResponse.error(message));
-            exchange.getResponse().setStatusCode(status);
-            exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-            var buffer = exchange.getResponse().bufferFactory().wrap(bytes);
-            return exchange.getResponse().writeWith(Mono.just(buffer));
+            var response = exchange.getResponse();
+            response.setStatusCode(status);
+            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+            // Preserve CORS headers so browsers can read the error response
+            String origin = exchange.getRequest().getHeaders().getOrigin();
+            if (origin != null) {
+                response.getHeaders().setAccessControlAllowOrigin(origin);
+                response.getHeaders().setAccessControlAllowCredentials(true);
+            }
+
+            var buffer = response.bufferFactory().wrap(bytes);
+            return response.writeWith(Mono.just(buffer));
         } catch (Exception e) {
             log.error("Failed to write error response", e);
             exchange.getResponse().setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);

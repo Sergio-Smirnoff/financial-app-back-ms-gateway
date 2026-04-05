@@ -11,4 +11,5 @@ public class ServicesProperties {
     private String financesUrl;
     private String cardsUrl;
     private String notificationsUrl;
+    private String investmentsUrl;
 }

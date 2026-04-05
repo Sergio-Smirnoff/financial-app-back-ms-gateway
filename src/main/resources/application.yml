@@ -45,6 +45,11 @@ spring:
           predicates:
             - Path=/api/v1/upload/**
 
+        - id: investments-service
+          uri: ${INVESTMENTS_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/investments/**
+
         # ── API-docs proxy routes (so browser can reach them via localhost:8080)
         - id: users-api-docs
           uri: ${USERS_SERVICE_URL:http://localhost:8081}
@@ -81,6 +86,13 @@ spring:
           filters:
             - RewritePath=/v3/api-docs/upload, /v3/api-docs
 
+        - id: investments-api-docs
+          uri: ${INVESTMENTS_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/v3/api-docs/investments
+          filters:
+            - RewritePath=/v3/api-docs/investments, /v3/api-docs
+
 jwt:
   # Set JWT_ENABLED=true only after ms-users (auth service) is implemented
   enabled: ${JWT_ENABLED:false}
@@ -93,6 +105,7 @@ services:
   finances-url: ${FINANCES_SERVICE_URL:http://localhost:8082}
   cards-url: ${CARDS_SERVICE_URL:http://localhost:8083}
   notifications-url: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}
+  investments-url: ${INVESTMENTS_SERVICE_URL:http://localhost:8086}
 
 springdoc:
   swagger-ui:
@@ -108,5 +121,7 @@ springdoc:
         url: /v3/api-docs/notifications
       - name: Upload Service
         url: /v3/api-docs/upload
+      - name: Investments Service
+        url: /v3/api-docs/investments
   api-docs:
     path: /v3/api-docs
