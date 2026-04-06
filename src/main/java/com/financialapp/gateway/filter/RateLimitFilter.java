@@ -34,6 +34,11 @@ public class RateLimitFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        // Never rate-limit CORS preflight requests
+        if (exchange.getRequest().getMethod() == org.springframework.http.HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
+
         String ip = resolveClientIp(exchange);
         long now = System.currentTimeMillis();
 

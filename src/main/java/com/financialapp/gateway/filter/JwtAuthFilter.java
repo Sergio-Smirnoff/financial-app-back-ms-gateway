@@ -52,6 +52,11 @@ public class JwtAuthFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        // Let CORS preflight through before JWT validation
+        if (exchange.getRequest().getMethod() == org.springframework.http.HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
+
         String path = exchange.getRequest().getURI().getPath();
 
         if (isPublicPath(path)) {

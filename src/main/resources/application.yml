@@ -7,6 +7,7 @@ spring:
   cloud:
     gateway:
       globalcors:
+        add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
             allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
@@ -99,7 +100,7 @@ jwt:
   secret: ${JWT_SECRET:dGhpcyBpcyBhIGRldmVsb3BtZW50IHBsYWNlaG9sZGVyIHNlY3JldA==}
 
 rate-limit:
-  requests-per-minute: ${RATE_LIMIT_RPM:60}
+  requests-per-minute: ${RATE_LIMIT_RPM:600}
 
 services:
   finances-url: ${FINANCES_SERVICE_URL:http://localhost:8082}
