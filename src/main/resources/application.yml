@@ -96,7 +96,7 @@ spring:
 
 jwt:
   # Set JWT_ENABLED=true only after ms-users (auth service) is implemented
-  enabled: ${JWT_ENABLED:false}
+  enabled: ${JWT_ENABLED:true}
   secret: ${JWT_SECRET:dGhpcyBpcyBhIGRldmVsb3BtZW50IHBsYWNlaG9sZGVyIHNlY3JldA==}
 
 rate-limit:

@@ -6,12 +6,10 @@ import com.financialapp.gateway.model.dto.ApiResponse;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -23,6 +21,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Slf4j
@@ -63,13 +62,13 @@ public class JwtAuthFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // Read JWT from access_token cookie
+        var accessTokenCookie = exchange.getRequest().getCookies().getFirst("access_token");
+        if (accessTokenCookie == null || accessTokenCookie.getValue().isBlank()) {
             return writeError(exchange, HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
 
-        String token = authHeader.substring(7);
+        String token = accessTokenCookie.getValue();
 
         try {
             Claims claims = parseToken(token);
@@ -99,7 +98,7 @@ public class JwtAuthFilter implements WebFilter {
     }
 
     private Claims parseToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtProperties.getSecret()));
+        SecretKey key = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
