@@ -38,6 +38,8 @@ public class JwtAuthFilter implements WebFilter {
             "/swagger-ui/**",
             "/v3/api-docs",
             "/v3/api-docs/**",
+            "/actuator",
+            "/actuator/**",
             "/webjars/**"
     );
 
