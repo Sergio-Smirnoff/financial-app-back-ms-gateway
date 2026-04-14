@@ -3,7 +3,7 @@ server:
 
 app:
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
 
 spring:
   application:
@@ -31,6 +31,13 @@ spring:
           uri: ${CARDS_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/cards/**
+
+        - id: notifications-sse
+          uri: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/notifications/stream
+          metadata:
+            response-timeout: -1
 
         - id: notifications-service
           uri: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}

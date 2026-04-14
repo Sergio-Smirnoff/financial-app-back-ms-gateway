@@ -7,7 +7,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -27,7 +26,6 @@ import java.util.List;
 @Slf4j
 @Component
 @Order(-2)
-@RequiredArgsConstructor
 public class JwtAuthFilter implements WebFilter {
 
     private static final List<String> PUBLIC_PATHS = List.of(
@@ -46,6 +44,13 @@ public class JwtAuthFilter implements WebFilter {
     private final JwtProperties jwtProperties;
     private final ObjectMapper objectMapper;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
+    private final SecretKey signingKey;
+
+    public JwtAuthFilter(JwtProperties jwtProperties, ObjectMapper objectMapper) {
+        this.jwtProperties = jwtProperties;
+        this.objectMapper = objectMapper;
+        this.signingKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
@@ -100,9 +105,8 @@ public class JwtAuthFilter implements WebFilter {
     }
 
     private Claims parseToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
         return Jwts.parser()
-                .verifyWith(key)
+                .verifyWith(signingKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

@@ -2,11 +2,15 @@ package com.financialapp.gateway.aggregator;
 
 import com.financialapp.gateway.config.ServicesProperties;
 import com.financialapp.gateway.model.dto.DashboardSummaryResponse;
+import io.netty.channel.ChannelOption;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
+import java.time.Duration;
 import java.util.Collections;
 
 @Slf4j
@@ -17,7 +21,13 @@ public class DashboardAggregator {
     private final ServicesProperties services;
 
     public DashboardAggregator(WebClient.Builder webClientBuilder, ServicesProperties services) {
-        this.webClient = webClientBuilder.build();
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
+                .responseTimeout(Duration.ofSeconds(10));
+
+        this.webClient = webClientBuilder
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
         this.services  = services;
     }
 
