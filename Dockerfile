@@ -13,7 +13,7 @@ RUN mvn -f financial-app-parent/pom.xml install -N -q
 
 # Resolve dependencies (cached layer — only re-runs when pom.xml changes)
 COPY ms-gateway/pom.xml ms-gateway/pom.xml
-RUN mvn -f ms-gateway/pom.xml dependency:go-offline -q
+RUN mvn -f ms-gateway/pom.xml dependency:resolve -q
 
 # Build
 COPY ms-gateway/src ms-gateway/src
