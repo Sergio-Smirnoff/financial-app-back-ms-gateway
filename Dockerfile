@@ -1,11 +1,9 @@
 # Build stage
 # Build context must be ./back (set in docker-compose.yml)
 # so this Dockerfile can access both financial-app-parent/ and ms-gateway/
-FROM eclipse-temurin:21-jdk AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /build
-
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
 
 # Install parent POM to local Maven repository
 COPY financial-app-parent/pom.xml financial-app-parent/pom.xml
