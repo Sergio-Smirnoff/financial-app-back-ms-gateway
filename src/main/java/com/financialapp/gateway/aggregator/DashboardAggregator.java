@@ -45,12 +45,12 @@ public class DashboardAggregator {
                 });
 
         Mono<Object> cardsMono = webClient.get()
-                .uri(services.getCardsUrl() + "/api/v1/cards?active=true")
+                .uri(services.getBanksUrl() + "/api/v1/banks/cards")
                 .header("X-User-Id", userIdStr)
                 .retrieve()
                 .bodyToMono(Object.class)
                 .onErrorResume(ex -> {
-                    log.warn("Cards service unavailable for dashboard: {}", ex.getMessage());
+                    log.warn("Banks service (cards) unavailable for dashboard: {}", ex.getMessage());
                     return Mono.just(Collections.emptyList());
                 });
 
