@@ -1,0 +1,58 @@
+name: Publish Docker Image
+
+on:
+  push:
+    branches: [ "master" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Extract module name
+        id: module
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          MODULE_NAME="${REPO_NAME#financial-app-back-}"
+          echo "name=$MODULE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Checkout microservice
+        uses: actions/checkout@v4
+        with:
+          path: ${{ steps.module.outputs.name }}
+
+      - name: Checkout Parent POM
+        uses: actions/checkout@v4
+        with:
+          repository: Sergio-Smirnoff/financial-app-back-financial-app-parent
+          path: financial-app-parent
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ steps.module.outputs.name }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
