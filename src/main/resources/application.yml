@@ -10,6 +10,8 @@ spring:
     name: ms-gateway
   cloud:
     gateway:
+      default-filters:
+        - AddRequestHeader=X-Internal-Token, ${INTERNAL_AUTH_TOKEN}
       routes:
         # ── Business routes ──────────────────────────────────────────────────
         - id: users-auth

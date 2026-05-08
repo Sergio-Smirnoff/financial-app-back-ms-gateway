@@ -4,6 +4,7 @@ import com.financialapp.gateway.config.ServicesProperties;
 import com.financialapp.gateway.model.dto.DashboardSummaryResponse;
 import io.netty.channel.ChannelOption;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,8 +20,12 @@ public class DashboardAggregator {
 
     private final WebClient webClient;
     private final ServicesProperties services;
+    private final String internalToken;
 
-    public DashboardAggregator(WebClient.Builder webClientBuilder, ServicesProperties services) {
+    public DashboardAggregator(WebClient.Builder webClientBuilder, 
+                                ServicesProperties services,
+                                @Value("${INTERNAL_AUTH_TOKEN}") String internalToken) {
+        this.internalToken = internalToken;
         HttpClient httpClient = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
                 .responseTimeout(Duration.ofSeconds(10));
@@ -37,6 +42,7 @@ public class DashboardAggregator {
         Mono<Object> financeSummaryMono = webClient.get()
                 .uri(services.getFinancesUrl() + "/api/v1/finances/transactions/summary")
                 .header("X-User-Id", userIdStr)
+                .header("X-Internal-Token", internalToken)
                 .retrieve()
                 .bodyToMono(Object.class)
                 .onErrorResume(ex -> {
@@ -47,6 +53,7 @@ public class DashboardAggregator {
         Mono<Object> cardsMono = webClient.get()
                 .uri(services.getBanksUrl() + "/api/v1/banks/cards")
                 .header("X-User-Id", userIdStr)
+                .header("X-Internal-Token", internalToken)
                 .retrieve()
                 .bodyToMono(Object.class)
                 .onErrorResume(ex -> {
@@ -57,6 +64,7 @@ public class DashboardAggregator {
         Mono<Object> notificationsMono = webClient.get()
                 .uri(services.getNotificationsUrl() + "/api/v1/notifications?read=false&size=5")
                 .header("X-User-Id", userIdStr)
+                .header("X-Internal-Token", internalToken)
                 .retrieve()
                 .bodyToMono(Object.class)
                 .onErrorResume(ex -> {
