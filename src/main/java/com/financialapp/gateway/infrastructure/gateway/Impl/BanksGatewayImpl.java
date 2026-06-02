@@ -16,7 +16,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/** Calls ms-banks /loans and /upcoming-payments and translates them into dashboard views. */
 @Component
 public class BanksGatewayImpl implements BanksGateway {
 

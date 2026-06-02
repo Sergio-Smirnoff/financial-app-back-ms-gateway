@@ -4,7 +4,6 @@ import com.financialapp.gateway.domain.model.dashboard.DashboardData;
 import com.financialapp.gateway.web.dto.response.DashboardResponse;
 import org.springframework.stereotype.Component;
 
-/** Maps the domain DashboardData read model to the web DashboardResponse. */
 @Component
 public class DashboardMapper {
 

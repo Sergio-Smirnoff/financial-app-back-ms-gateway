@@ -3,10 +3,6 @@ package com.financialapp.gateway.domain.model.admission;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-/**
- * Sliding-window admission counter for a single client. Owns the allow/deny decision.
- * Not thread-safe by itself; the infrastructure filter guards per-client access.
- */
 public final class TokenBucket {
     private final RateLimitPolicy policy;
     private final Deque<Long> hits = new ArrayDeque<>();

@@ -8,7 +8,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/** Outbound gateway to ms-banks. Framework-free (CompletableFuture, not Reactor). */
 public interface BanksGateway {
 
     CompletableFuture<List<LoanView>> fetchActiveLoans(UserId userId);

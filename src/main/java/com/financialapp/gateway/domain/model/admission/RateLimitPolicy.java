@@ -1,6 +1,5 @@
 package com.financialapp.gateway.domain.model.admission;
 
-/** Immutable rate-limit configuration: how many requests are allowed per rolling window. */
 public record RateLimitPolicy(int capacity, long windowMillis) {
     public RateLimitPolicy {
         if (capacity <= 0) {

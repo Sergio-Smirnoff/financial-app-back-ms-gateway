@@ -7,7 +7,6 @@ import lombok.Getter;
 import java.time.Instant;
 import java.util.List;
 
-/** Shared response envelope: { success, message, data, errors, timestamp }. */
 @Getter
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)

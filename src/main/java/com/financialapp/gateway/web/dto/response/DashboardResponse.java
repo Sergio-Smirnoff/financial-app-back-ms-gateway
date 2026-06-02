@@ -3,7 +3,6 @@ package com.financialapp.gateway.web.dto.response;
 import java.time.LocalDate;
 import java.util.List;
 
-/** BFF dashboard payload: finances + banks, money as String. */
 public record DashboardResponse(
         List<CurrencySummary> yearToDate,
         List<CurrencySummary> month,

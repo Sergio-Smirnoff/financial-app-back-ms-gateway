@@ -1,8 +1,8 @@
-package com.financialapp.gateway.exception;
+package com.financialapp.gateway.web.error;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.financialapp.gateway.model.dto.ApiResponse;
+import com.financialapp.gateway.web.dto.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WebClientResponseException.class)
     public Mono<ResponseEntity<ApiResponse<Void>>> handleWebClientError(WebClientResponseException ex) {
         log.error("Upstream service error: {} - body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
-        
+
         String errorMessage = "Upstream service error";
         try {
             JsonNode body = objectMapper.readTree(ex.getResponseBodyAsString());

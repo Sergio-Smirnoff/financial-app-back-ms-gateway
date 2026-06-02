@@ -7,7 +7,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/** Outbound gateway to ms-finances. Framework-free (CompletableFuture, not Reactor). */
 public interface FinancesGateway {
 
     /** Per-currency income/expense/balance totals for [from, to]. */

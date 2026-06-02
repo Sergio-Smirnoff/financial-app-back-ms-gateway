@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
-/** JWT implementation of the token-verification gateway (jjwt lives here, not in the domain). */
 @Component
 public class JwtTokenVerificationGateway implements TokenVerificationGateway {
 

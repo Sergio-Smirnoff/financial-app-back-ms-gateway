@@ -15,7 +15,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 
-/** BFF endpoint: one call composes the dashboard from finances + banks. */
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @Tag(name = "Dashboard", description = "Aggregated dashboard data (BFF)")

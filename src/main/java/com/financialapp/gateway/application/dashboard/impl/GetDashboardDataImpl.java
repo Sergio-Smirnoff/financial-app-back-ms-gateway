@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.concurrent.CompletableFuture;
 
-/** Fans out finances + banks calls in parallel and joins them into a DashboardData. */
 @Service
 public class GetDashboardDataImpl implements GetDashboardData {
 

@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-/** Calls ms-finances /transactions/summary and translates the per-currency map into CurrencySummary. */
 @Component
 public class FinancesGatewayImpl implements FinancesGateway {
 
