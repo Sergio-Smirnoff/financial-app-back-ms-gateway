@@ -1,8 +1,8 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.AccessToken;
-import com.financialapp.gateway.domain.common.model.InvalidAccessTokenException;
 import com.financialapp.gateway.domain.common.model.Principal;
+import com.financialapp.gateway.domain.exception.InvalidAccessTokenException;
 import com.financialapp.gateway.infrastructure.config.JwtProperties;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

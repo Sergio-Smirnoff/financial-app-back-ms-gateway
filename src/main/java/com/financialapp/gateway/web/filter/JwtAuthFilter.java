@@ -1,7 +1,7 @@
 package com.financialapp.gateway.web.filter;
 
 import com.financialapp.gateway.domain.common.model.AccessToken;
-import com.financialapp.gateway.domain.common.model.InvalidAccessTokenException;
+import com.financialapp.gateway.domain.exception.InvalidAccessTokenException;
 import com.financialapp.gateway.domain.common.model.Principal;
 import com.financialapp.gateway.domain.gateway.TokenVerificationGateway;
 import com.financialapp.gateway.web.error.ErrorResponseRenderer;
