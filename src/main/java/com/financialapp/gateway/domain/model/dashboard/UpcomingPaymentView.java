@@ -8,4 +8,7 @@ public record UpcomingPaymentView(
         String description,
         String amount,
         String currency,
-        LocalDate dueDate) {}
+        LocalDate dueDate,
+        int installmentNumber,
+        int totalInstallments,
+        boolean paid) {}

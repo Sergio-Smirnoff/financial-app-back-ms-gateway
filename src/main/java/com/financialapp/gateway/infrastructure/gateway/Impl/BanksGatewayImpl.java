@@ -41,7 +41,9 @@ public class BanksGatewayImpl implements BanksGateway {
                 .bodyToMono(LOANS_TYPE)
                 .map(response -> nullSafe(response.data()).stream()
                         .filter(LoanResponse::active)
-                        .map(l -> new LoanView(l.id(), l.name(), l.currency(), l.principal(), l.active()))
+                        .map(l -> new LoanView(
+                                l.id(), l.name(), l.currency(), l.principal(),
+                                l.totalInstallments(), l.remainingInstallments(), l.active()))
                         .toList())
                 .toFuture();
     }
@@ -55,7 +57,8 @@ public class BanksGatewayImpl implements BanksGateway {
                 .bodyToMono(PAYMENTS_TYPE)
                 .map(response -> nullSafe(response.data()).stream()
                         .map(p -> new UpcomingPaymentView(
-                                p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate()))
+                                p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate(),
+                                p.installmentNumber(), p.totalInstallments(), p.paid()))
                         .toList())
                 .toFuture();
     }

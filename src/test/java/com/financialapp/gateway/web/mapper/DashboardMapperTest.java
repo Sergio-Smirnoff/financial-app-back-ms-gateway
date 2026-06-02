@@ -21,8 +21,8 @@ class DashboardMapperTest {
         var data = new DashboardData(
                 List.of(new CurrencySummary("ARS", "1000.00", "400.00", "600.00")),
                 List.of(new CurrencySummary("USD", "10.00", "2.00", "8.00")),
-                List.of(new LoanView(1L, "Car", "ARS", "50000.00", true)),
-                List.of(new UpcomingPaymentView(9L, "LOAN", "Car #3", "1500.00", "ARS", LocalDate.of(2026, 6, 10))));
+                List.of(new LoanView(1L, "Car", "ARS", "50000.00", 12, 9, true)),
+                List.of(new UpcomingPaymentView(9L, "LOAN", "Car #3", "1500.00", "ARS", LocalDate.of(2026, 6, 10), 3, 12, false)));
 
         DashboardResponse out = mapper.toResponse(data);
 
@@ -31,8 +31,8 @@ class DashboardMapperTest {
         assertThat(out.month()).containsExactly(
                 new DashboardResponse.CurrencySummary("USD", "10.00", "2.00", "8.00"));
         assertThat(out.activeLoans()).containsExactly(
-                new DashboardResponse.Loan(1L, "Car", "ARS", "50000.00", true));
+                new DashboardResponse.Loan(1L, "Car", "ARS", "50000.00", 12, 9, true));
         assertThat(out.upcomingPayments()).containsExactly(
-                new DashboardResponse.UpcomingPayment(9L, "LOAN", "Car #3", "1500.00", "ARS", LocalDate.of(2026, 6, 10)));
+                new DashboardResponse.UpcomingPayment(9L, "LOAN", "Car #3", "1500.00", "ARS", LocalDate.of(2026, 6, 10), 3, 12, false));
     }
 }

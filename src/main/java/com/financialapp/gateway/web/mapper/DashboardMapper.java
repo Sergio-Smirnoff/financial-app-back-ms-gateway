@@ -19,11 +19,13 @@ public class DashboardMapper {
                         .toList(),
                 data.activeLoans().stream()
                         .map(l -> new DashboardResponse.Loan(
-                                l.id(), l.name(), l.currency(), l.principal(), l.active()))
+                                l.id(), l.name(), l.currency(), l.principal(),
+                                l.totalInstallments(), l.remainingInstallments(), l.active()))
                         .toList(),
                 data.upcomingPayments().stream()
                         .map(p -> new DashboardResponse.UpcomingPayment(
-                                p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate()))
+                                p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate(),
+                                p.installmentNumber(), p.totalInstallments(), p.paid()))
                         .toList());
     }
 }

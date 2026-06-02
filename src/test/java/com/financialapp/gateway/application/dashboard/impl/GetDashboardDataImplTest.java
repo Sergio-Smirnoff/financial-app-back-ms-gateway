@@ -35,9 +35,9 @@ class GetDashboardDataImplTest {
     void composes_finances_and_banks_into_dashboard_data() {
         var ytd = List.of(new CurrencySummary("ARS", "1000.00", "400.00", "600.00"));
         var month = List.of(new CurrencySummary("ARS", "200.00", "50.00", "150.00"));
-        var loans = List.of(new LoanView(1L, "Car", "ARS", "50000.00", true));
+        var loans = List.of(new LoanView(1L, "Car", "ARS", "50000.00", 12, 9, true));
         var payments = List.of(new UpcomingPaymentView(
-                9L, "LOAN", "Car #3", "1500.00", "ARS", LocalDate.of(2026, 6, 10)));
+                9L, "LOAN", "Car #3", "1500.00", "ARS", LocalDate.of(2026, 6, 10), 3, 12, false));
 
         when(finances.fetchSummary(eq(user), eq(yearFrom), eq(yearTo)))
                 .thenReturn(CompletableFuture.completedFuture(ytd));

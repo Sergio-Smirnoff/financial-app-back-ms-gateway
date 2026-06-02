@@ -11,8 +11,11 @@ public record DashboardResponse(
 
     public record CurrencySummary(String currency, String totalIncome, String totalExpense, String balance) {}
 
-    public record Loan(Long id, String name, String currency, String principal, boolean active) {}
+    public record Loan(
+            Long id, String name, String currency, String principal,
+            int totalInstallments, int remainingInstallments, boolean active) {}
 
     public record UpcomingPayment(
-            Long id, String type, String description, String amount, String currency, LocalDate dueDate) {}
+            Long id, String type, String description, String amount, String currency, LocalDate dueDate,
+            int installmentNumber, int totalInstallments, boolean paid) {}
 }
