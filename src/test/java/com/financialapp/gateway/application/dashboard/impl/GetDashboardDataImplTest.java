@@ -3,6 +3,7 @@ package com.financialapp.gateway.application.dashboard.impl;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
+import com.financialapp.gateway.domain.model.composition.SectionStatus;
 import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
 import com.financialapp.gateway.domain.model.dashboard.DashboardData;
 import com.financialapp.gateway.domain.model.dashboard.LoanView;
@@ -32,7 +33,7 @@ class GetDashboardDataImplTest {
     private final LocalDate monthTo = LocalDate.of(2026, 6, 30);
 
     @Test
-    void composes_finances_and_banks_into_dashboard_data() {
+    void composes_all_sections_ok_when_every_call_succeeds() {
         var ytd = List.of(new CurrencySummary("ARS", "1000.00", "400.00", "600.00"));
         var month = List.of(new CurrencySummary("ARS", "200.00", "50.00", "150.00"));
         var loans = List.of(new LoanView(1L, "Car", "ARS", "50000.00", 12, 9, true));
@@ -50,26 +51,30 @@ class GetDashboardDataImplTest {
 
         DashboardData result = useCase.execute(user, yearFrom, yearTo, monthFrom, monthTo).join();
 
-        assertThat(result.yearToDate()).isEqualTo(ytd);
-        assertThat(result.month()).isEqualTo(month);
-        assertThat(result.activeLoans()).isEqualTo(loans);
-        assertThat(result.upcomingPayments()).isEqualTo(payments);
+        assertThat(result.yearToDate().status()).isEqualTo(SectionStatus.OK);
+        assertThat(result.yearToDate().data()).isEqualTo(ytd);
+        assertThat(result.month().data()).isEqualTo(month);
+        assertThat(result.activeLoans().data()).isEqualTo(loans);
+        assertThat(result.upcomingPayments().data()).isEqualTo(payments);
     }
 
     @Test
-    void propagates_gateway_failure() {
+    void degrades_only_the_failing_section_and_still_completes() {
         when(finances.fetchSummary(eq(user), eq(yearFrom), eq(yearTo)))
-                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("boom")));
+                .thenReturn(CompletableFuture.completedFuture(
+                        List.of(new CurrencySummary("ARS", "1.00", "0.00", "1.00"))));
         when(finances.fetchSummary(eq(user), eq(monthFrom), eq(monthTo)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchActiveLoans(any()))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("banks down")));
         when(banks.fetchUpcomingPayments(any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
-        CompletableFuture<DashboardData> future =
-                useCase.execute(user, yearFrom, yearTo, monthFrom, monthTo);
+        DashboardData result = useCase.execute(user, yearFrom, yearTo, monthFrom, monthTo).join();
 
-        assertThat(future).isCompletedExceptionally();
+        assertThat(result.yearToDate().status()).isEqualTo(SectionStatus.OK);
+        assertThat(result.activeLoans().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(result.activeLoans().data()).isEmpty();
+        assertThat(result.upcomingPayments().status()).isEqualTo(SectionStatus.OK);
     }
 }

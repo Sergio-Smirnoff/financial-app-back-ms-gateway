@@ -1,5 +1,6 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
+import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.model.dashboard.LoanView;
@@ -26,10 +27,12 @@ public class BanksGatewayImpl implements BanksGateway {
 
     private final WebClient webClient;
     private final String banksUrl;
+    private final TimeoutPolicy timeoutPolicy;
 
-    public BanksGatewayImpl(WebClient internalWebClient, ServicesProperties services) {
+    public BanksGatewayImpl(WebClient internalWebClient, ServicesProperties services, TimeoutPolicy timeoutPolicy) {
         this.webClient = internalWebClient;
         this.banksUrl = services.getBanksUrl();
+        this.timeoutPolicy = timeoutPolicy;
     }
 
     @Override
@@ -45,6 +48,7 @@ public class BanksGatewayImpl implements BanksGateway {
                                 l.id(), l.name(), l.currency(), l.principal(),
                                 l.totalInstallments(), l.remainingInstallments(), l.active()))
                         .toList())
+                .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
 
@@ -60,6 +64,7 @@ public class BanksGatewayImpl implements BanksGateway {
                                 p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate(),
                                 p.installmentNumber(), p.totalInstallments(), p.paid()))
                         .toList())
+                .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
 

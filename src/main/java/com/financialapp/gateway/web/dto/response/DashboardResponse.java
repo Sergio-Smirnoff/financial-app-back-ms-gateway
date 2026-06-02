@@ -4,10 +4,12 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record DashboardResponse(
-        List<CurrencySummary> yearToDate,
-        List<CurrencySummary> month,
-        List<Loan> activeLoans,
-        List<UpcomingPayment> upcomingPayments) {
+        SectionResponse<List<CurrencySummary>> yearToDate,
+        SectionResponse<List<CurrencySummary>> month,
+        SectionResponse<List<Loan>> activeLoans,
+        SectionResponse<List<UpcomingPayment>> upcomingPayments) {
+
+    public record SectionResponse<T>(String status, T items) {}
 
     public record CurrencySummary(String currency, String totalIncome, String totalExpense, String balance) {}
 

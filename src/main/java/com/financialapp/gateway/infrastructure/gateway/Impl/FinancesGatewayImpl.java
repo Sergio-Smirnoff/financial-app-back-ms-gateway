@@ -1,5 +1,6 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
+import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
@@ -23,10 +24,12 @@ public class FinancesGatewayImpl implements FinancesGateway {
 
     private final WebClient webClient;
     private final String financesUrl;
+    private final TimeoutPolicy timeoutPolicy;
 
-    public FinancesGatewayImpl(WebClient internalWebClient, ServicesProperties services) {
+    public FinancesGatewayImpl(WebClient internalWebClient, ServicesProperties services, TimeoutPolicy timeoutPolicy) {
         this.webClient = internalWebClient;
         this.financesUrl = services.getFinancesUrl();
+        this.timeoutPolicy = timeoutPolicy;
     }
 
     @Override
@@ -37,6 +40,7 @@ public class FinancesGatewayImpl implements FinancesGateway {
                 .retrieve()
                 .bodyToMono(SUMMARY_TYPE)
                 .map(this::toCurrencySummaries)
+                .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
 

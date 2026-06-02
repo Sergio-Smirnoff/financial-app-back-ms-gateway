@@ -107,6 +107,10 @@ jwt:
 rate-limit:
   requests-per-minute: ${RATE_LIMIT_RPM:600}
 
+gateway:
+  timeout:
+    per-call-ms: ${GATEWAY_TIMEOUT_PER_CALL_MS:3000}
+
 services:
   finances-url: ${FINANCES_SERVICE_URL:http://localhost:8082}
   banks-url: ${BANKS_SERVICE_URL:http://localhost:8083}
