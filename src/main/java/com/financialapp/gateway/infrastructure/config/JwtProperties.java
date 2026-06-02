@@ -1,4 +1,4 @@
-package com.financialapp.gateway.config;
+package com.financialapp.gateway.infrastructure.config;
 
 import lombok.Getter;
 import lombok.Setter;
