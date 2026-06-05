@@ -1,7 +1,8 @@
 package com.financialapp.gateway.web.error;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.financialapp.gateway.web.dto.response.ApiResponse;
+import com.financialapp.commons.core.response.ApiResponse;
+import com.financialapp.gateway.domain.exception.DomainErrorCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -17,10 +18,11 @@ public class ErrorResponseRenderer {
         this.objectMapper = objectMapper;
     }
 
-    public Mono<Void> render(ServerWebExchange exchange, HttpStatus status, String message) {
+    public Mono<Void> render(ServerWebExchange exchange, HttpStatus status, DomainErrorCode code, String message) {
         var response = exchange.getResponse();
         try {
-            byte[] bytes = objectMapper.writeValueAsBytes(ApiResponse.error(message));
+            byte[] bytes = objectMapper.writeValueAsBytes(
+                    ApiResponse.failure(status, code.code(), message, null));
             response.setStatusCode(status);
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
             // Preserve CORS headers so browsers can read the error response.

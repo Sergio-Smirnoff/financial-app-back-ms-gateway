@@ -73,7 +73,7 @@ src/main/java/com/financialapp/gateway/
     ├── controller/
     │   └── DashboardController.java  # GET /api/v1/dashboard/data
     ├── dto/response/
-    │   ├── ApiResponse.java
+    │   ├── (envelope from commons-core)
     │   └── DashboardResponse.java
     ├── error/
     │   ├── ErrorResponseRenderer.java
@@ -86,6 +86,13 @@ src/main/java/com/financialapp/gateway/
     └── mapper/
         └── DashboardMapper.java
 ```
+
+## Response envelope
+
+Gateway-rendered responses (auth 401 `unauthorized`, rate-limit 429 `rate_limit_exceeded`,
+upstream failures `upstream_unavailable`) and the BFF endpoints use the shared envelope
+`{ status, title, code, message, data }` from `commons-core` (built from `financial-app-parent`).
+Downstream service error bodies pass through with their own `code` preserved.
 
 ## Endpoints / Routes
 

@@ -2,6 +2,7 @@ package com.financialapp.gateway.web.filter;
 
 import com.financialapp.gateway.domain.model.admission.RateLimitPolicy;
 import com.financialapp.gateway.domain.model.admission.TokenBucket;
+import com.financialapp.gateway.domain.exception.DomainErrorCode;
 import com.financialapp.gateway.web.error.ErrorResponseRenderer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,7 +48,7 @@ public class RateLimitFilter implements WebFilter {
         }
         if (!allowed) {
             log.warn("Rate limit exceeded for IP: {}", ip);
-            return errorRenderer.render(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many requests");
+            return errorRenderer.render(exchange, HttpStatus.TOO_MANY_REQUESTS, DomainErrorCode.RATE_LIMITED, "Too many requests");
         }
         return chain.filter(exchange);
     }

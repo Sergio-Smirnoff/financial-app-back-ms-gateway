@@ -18,6 +18,11 @@
 
     <dependencies>
 
+        <dependency>
+            <groupId>com.financialapp</groupId>
+            <artifactId>commons-core</artifactId>
+        </dependency>
+
         <!-- Spring Cloud Gateway (WebFlux-based) -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

@@ -4,6 +4,7 @@ import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.exception.InvalidAccessTokenException;
 import com.financialapp.gateway.domain.common.model.Principal;
 import com.financialapp.gateway.domain.gateway.TokenVerificationGateway;
+import com.financialapp.gateway.domain.exception.DomainErrorCode;
 import com.financialapp.gateway.web.error.ErrorResponseRenderer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,7 +58,7 @@ public class JwtAuthFilter implements WebFilter {
         }
         var cookie = exchange.getRequest().getCookies().getFirst("access_token");
         if (cookie == null || cookie.getValue().isBlank()) {
-            return errorRenderer.render(exchange, HttpStatus.UNAUTHORIZED, "Unauthorized");
+            return errorRenderer.render(exchange, HttpStatus.UNAUTHORIZED, DomainErrorCode.UNAUTHORIZED, "Unauthorized");
         }
         try {
             Principal principal = tokenVerification.verify(new AccessToken(cookie.getValue()));
@@ -66,7 +67,7 @@ public class JwtAuthFilter implements WebFilter {
             return chain.filter(exchange.mutate().request(mutated).build());
         } catch (InvalidAccessTokenException | IllegalArgumentException e) {
             log.warn("JWT rejected for {}: {}", path, e.getMessage());
-            return errorRenderer.render(exchange, HttpStatus.UNAUTHORIZED, "Token invalid or expired");
+            return errorRenderer.render(exchange, HttpStatus.UNAUTHORIZED, DomainErrorCode.UNAUTHORIZED, "Token invalid or expired");
         }
     }
 

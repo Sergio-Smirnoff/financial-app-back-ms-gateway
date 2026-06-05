@@ -2,7 +2,7 @@ package com.financialapp.gateway.web.controller;
 
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.usecase.dashboard.GetDashboardData;
-import com.financialapp.gateway.web.dto.response.ApiResponse;
+import com.financialapp.commons.core.response.ApiResponse;
 import com.financialapp.gateway.web.dto.response.DashboardResponse;
 import com.financialapp.gateway.web.mapper.DashboardMapper;
 import io.swagger.v3.oas.annotations.Operation;
