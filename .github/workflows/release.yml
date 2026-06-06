@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        default: patch
+        options:
+          - major
+          - minor
+          - patch
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/master'
+    uses: Sergio-Smirnoff/financial-app/.github/workflows/release.yml@master
+    permissions:
+      contents: write
+    with:
+      bump: ${{ inputs.bump }}
+
+  publish:
+    needs: release
+    uses: Sergio-Smirnoff/financial-app/.github/workflows/backend-publish.yml@master
+    permissions:
+      contents: read
+      packages: write
+    with:
+      module: ms-gateway
+      version: ${{ needs.release.outputs.version }}
