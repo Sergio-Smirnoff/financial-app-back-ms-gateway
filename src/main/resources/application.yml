@@ -110,12 +110,18 @@ rate-limit:
 gateway:
   timeout:
     per-call-ms: ${GATEWAY_TIMEOUT_PER_CALL_MS:3000}
+    page-budget-ms: ${GATEWAY_TIMEOUT_PAGE_BUDGET_MS:5000}
 
 services:
+  users-url: ${USERS_SERVICE_URL:http://localhost:8081}
   finances-url: ${FINANCES_SERVICE_URL:http://localhost:8082}
   banks-url: ${BANKS_SERVICE_URL:http://localhost:8083}
   notifications-url: ${NOTIFICATIONS_SERVICE_URL:http://localhost:8084}
+  upload-url: ${UPLOAD_SERVICE_URL:http://localhost:8085}
   investments-url: ${INVESTMENTS_SERVICE_URL:http://localhost:8086}
+
+cache:
+  fx-ttl-seconds: ${CACHE_FX_TTL_SECONDS:30}
 
 springdoc:
   swagger-ui:

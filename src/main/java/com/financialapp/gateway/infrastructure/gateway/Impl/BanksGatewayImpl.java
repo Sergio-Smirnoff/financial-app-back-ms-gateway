@@ -3,9 +3,11 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
+import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.dashboard.LoanView;
 import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
+import com.financialapp.gateway.infrastructure.gateway.dto.AccountResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.LoanResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.UpcomingPaymentResponse;
@@ -23,6 +25,8 @@ public class BanksGatewayImpl implements BanksGateway {
     private static final ParameterizedTypeReference<GatewayApiResponse<List<LoanResponse>>> LOANS_TYPE =
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<GatewayApiResponse<List<UpcomingPaymentResponse>>> PAYMENTS_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<AccountResponse>>> ACCOUNTS_TYPE =
             new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
@@ -63,6 +67,23 @@ public class BanksGatewayImpl implements BanksGateway {
                         .map(p -> new UpcomingPaymentView(
                                 p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate(),
                                 p.installmentNumber(), p.totalInstallments(), p.paid()))
+                        .toList())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Currency>> accountCurrencies(UserId userId) {
+        return webClient.get()
+                .uri(banksUrl + "/api/v1/banks/accounts")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(ACCOUNTS_TYPE)
+                .map(response -> nullSafe(response.data()).stream()
+                        .map(AccountResponse::currency)
+                        .filter(c -> c != null && !c.isBlank())
+                        .map(Currency::of)
+                        .distinct()
                         .toList())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();

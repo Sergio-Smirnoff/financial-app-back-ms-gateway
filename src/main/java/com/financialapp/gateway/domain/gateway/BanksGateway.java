@@ -1,6 +1,7 @@
 package com.financialapp.gateway.domain.gateway;
 
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.dashboard.LoanView;
 import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
 
@@ -13,4 +14,6 @@ public interface BanksGateway {
     CompletableFuture<List<LoanView>> fetchActiveLoans(UserId userId);
 
     CompletableFuture<List<UpcomingPaymentView>> fetchUpcomingPayments(UserId userId, LocalDate from, LocalDate to);
+
+    CompletableFuture<List<Currency>> accountCurrencies(UserId userId);
 }

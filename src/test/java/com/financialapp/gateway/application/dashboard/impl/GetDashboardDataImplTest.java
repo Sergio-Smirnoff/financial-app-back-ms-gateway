@@ -3,6 +3,7 @@ package com.financialapp.gateway.application.dashboard.impl;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
+import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
 import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
 import com.financialapp.gateway.domain.model.dashboard.DashboardData;
@@ -24,7 +25,8 @@ class GetDashboardDataImplTest {
 
     private final FinancesGateway finances = mock(FinancesGateway.class);
     private final BanksGateway banks = mock(BanksGateway.class);
-    private final GetDashboardDataImpl useCase = new GetDashboardDataImpl(finances, banks);
+    private final GetDashboardDataImpl useCase = new GetDashboardDataImpl(
+            finances, banks, PageTimeoutBudget.fromMillis(5000));
 
     private final UserId user = new UserId(7L);
     private final LocalDate yearFrom = LocalDate.of(2026, 1, 1);
@@ -76,5 +78,27 @@ class GetDashboardDataImplTest {
         assertThat(result.activeLoans().status()).isEqualTo(SectionStatus.UNAVAILABLE);
         assertThat(result.activeLoans().data()).isEmpty();
         assertThat(result.upcomingPayments().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void section_that_times_out_past_budget_resolves_unavailable() {
+        GetDashboardDataImpl shortBudgetUseCase = new GetDashboardDataImpl(
+                finances, banks, PageTimeoutBudget.fromMillis(100));
+
+        when(finances.fetchSummary(eq(user), eq(yearFrom), eq(yearTo)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        List.of(new CurrencySummary("ARS", "1.00", "0.00", "1.00"))));
+        when(finances.fetchSummary(eq(user), eq(monthFrom), eq(monthTo)))
+                .thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchActiveLoans(any()))
+                .thenReturn(new CompletableFuture<>()); // Never completes
+        when(banks.fetchUpcomingPayments(any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        DashboardData result = shortBudgetUseCase.execute(user, yearFrom, yearTo, monthFrom, monthTo).join();
+
+        assertThat(result.yearToDate().status()).isEqualTo(SectionStatus.OK);
+        assertThat(result.activeLoans().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(result.activeLoans().data()).isEmpty();
     }
 }

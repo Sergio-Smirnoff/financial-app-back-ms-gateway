@@ -23,7 +23,8 @@ public class DashboardMapper {
     }
 
     private <S, T> DashboardResponse.SectionResponse<T> section(Section<S> in, Function<S, T> map) {
-        return new DashboardResponse.SectionResponse<>(in.status().name(), map.apply(in.data()));
+        return new DashboardResponse.SectionResponse<>(
+                in.status().name(), map.apply(in.data()), in.observedAt().value());
     }
 
     private List<DashboardResponse.CurrencySummary> toCurrencySummaries(List<CurrencySummary> in) {

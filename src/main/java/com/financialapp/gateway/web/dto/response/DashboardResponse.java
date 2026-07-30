@@ -1,5 +1,6 @@
 package com.financialapp.gateway.web.dto.response;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -9,7 +10,7 @@ public record DashboardResponse(
         SectionResponse<List<Loan>> activeLoans,
         SectionResponse<List<UpcomingPayment>> upcomingPayments) {
 
-    public record SectionResponse<T>(String status, T items) {}
+    public record SectionResponse<T>(String status, T items, Instant observedAt) {}
 
     public record CurrencySummary(String currency, String totalIncome, String totalExpense, String balance) {}
 

@@ -7,4 +7,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "gateway.timeout")
 public class TimeoutProperties {
     private long perCallMs = 3000;
+    private long pageBudgetMs = 5000;
 }
