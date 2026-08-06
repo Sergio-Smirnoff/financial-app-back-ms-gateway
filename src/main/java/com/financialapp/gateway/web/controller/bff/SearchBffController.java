@@ -33,8 +33,8 @@ public class SearchBffController {
 
         return Mono.fromFuture(getSearchBffUseCase.execute(new UserId(userId), query))
                 .map(data -> ApiResponse.ok(new SearchBffResponse(
-                        BffMapper.toSectionResponse(data.movements()),
-                        BffMapper.toSectionResponse(data.positions()),
-                        BffMapper.toSectionResponse(data.categories()))));
+                        BffMapper.toSectionResponse(data.movements(), list -> list.stream().map(BffMapper::toSearchHitResponse).toList()),
+                        BffMapper.toSectionResponse(data.positions(), list -> list.stream().map(BffMapper::toSearchHitResponse).toList()),
+                        BffMapper.toSectionResponse(data.categories(), list -> list.stream().map(BffMapper::toSearchHitResponse).toList()))));
     }
 }

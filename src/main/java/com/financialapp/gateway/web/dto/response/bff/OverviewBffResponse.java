@@ -1,17 +1,17 @@
 package com.financialapp.gateway.web.dto.response.bff;
 
 import com.financialapp.gateway.web.dto.response.SectionResponse;
+import com.financialapp.gateway.web.dto.response.bff.BffWebResponses.*;
 
 import java.util.List;
-import java.util.Map;
 
 public record OverviewBffResponse(
-        SectionResponse<Map<String, Object>> kpis,
-        SectionResponse<Map<String, Object>> netWorth,
-        SectionResponse<Map<String, Object>> breakdown,
-        SectionResponse<List<Map<String, Object>>> flow,
-        SectionResponse<List<Map<String, Object>>> committed,
-        SectionResponse<List<Map<String, Object>>> upcomingPayments,
-        SectionResponse<List<Map<String, Object>>> spendByCategory,
-        SectionResponse<List<Map<String, Object>>> latestMovements
+        SectionResponse<OverviewKpisResponse> kpis,
+        SectionResponse<NetWorthResponse> netWorth,
+        SectionResponse<BreakdownResponse> breakdown,
+        SectionResponse<List<FlowPointResponse>> flow,
+        SectionResponse<List<CommittedPointResponse>> committed,
+        SectionResponse<List<UpcomingPaymentResponse>> upcomingPayments,
+        SectionResponse<List<CategorySpendResponse>> spendByCategory,
+        SectionResponse<List<TransactionRowResponse>> latestMovements
 ) {}

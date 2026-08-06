@@ -5,6 +5,7 @@ import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionDetailBffUseCase;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionsBffUseCase;
+import com.financialapp.gateway.web.dto.response.bff.BffWebResponses;
 import com.financialapp.gateway.web.dto.response.bff.TransactionDetailBffResponse;
 import com.financialapp.gateway.web.dto.response.bff.TransactionsBffResponse;
 import com.financialapp.gateway.web.mapper.BffMapper;
@@ -60,10 +61,10 @@ public class TransactionsBffController {
         return Mono.fromFuture(getTransactionsBffUseCase.execute(
                 new UserId(userId), page, size, categories, accounts, from, to, view, secondary))
                 .map(data -> ApiResponse.ok(new TransactionsBffResponse(
-                        BffMapper.toSectionResponse(data.summary()),
-                        BffMapper.toSectionResponse(data.page()),
-                        BffMapper.toSectionResponse(data.filterOptions()),
-                        BffMapper.toSectionResponse(data.uncategorised()))));
+                        BffMapper.toSectionResponse(data.summary(), BffMapper::toTransactionsSummaryResponse),
+                        BffMapper.toSectionResponse(data.page(), BffMapper::toTransactionsPageResponse),
+                        BffMapper.toSectionResponse(data.filterOptions(), BffMapper::toFilterOptionsResponse),
+                        BffMapper.toSectionResponse(data.uncategorised(), u -> new BffWebResponses.UncategorisedSummaryResponse(u.count())))));
     }
 
     @GetMapping("/{id}")
@@ -74,6 +75,6 @@ public class TransactionsBffController {
 
         return Mono.fromFuture(getTransactionDetailBffUseCase.execute(new UserId(userId), transactionId))
                 .map(data -> ApiResponse.ok(new TransactionDetailBffResponse(
-                        BffMapper.toSectionResponse(data.detail()))));
+                        BffMapper.toSectionResponse(data.detail(), BffMapper::toTransactionDetailResponse))));
     }
 }

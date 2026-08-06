@@ -1,16 +1,16 @@
 package com.financialapp.gateway.web.dto.response.bff;
 
 import com.financialapp.gateway.web.dto.response.SectionResponse;
+import com.financialapp.gateway.web.dto.response.bff.BffWebResponses.*;
 
 import java.util.List;
-import java.util.Map;
 
 public record BanksBffResponse(
-        SectionResponse<Map<String, Object>> kpis,
-        SectionResponse<List<Map<String, Object>>> accounts,
-        SectionResponse<List<Map<String, Object>>> cards,
-        SectionResponse<List<Map<String, Object>>> loans,
-        SectionResponse<List<Map<String, Object>>> importHealth,
-        SectionResponse<List<Map<String, Object>>> cashDistribution,
-        SectionResponse<List<Map<String, Object>>> paymentCalendar
+        SectionResponse<BanksKpisResponse> kpis,
+        SectionResponse<List<AccountRowResponse>> accounts,
+        SectionResponse<List<CardRowResponse>> cards,
+        SectionResponse<List<LoanRowResponse>> loans,
+        SectionResponse<List<ImportHealthRowResponse>> importHealth,
+        SectionResponse<List<CompositionSliceResponse>> cashDistribution,
+        SectionResponse<List<CalendarEntryResponse>> paymentCalendar
 ) {}
