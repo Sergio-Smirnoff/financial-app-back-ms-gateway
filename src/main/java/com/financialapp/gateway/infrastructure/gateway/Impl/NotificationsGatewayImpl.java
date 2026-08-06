@@ -69,4 +69,11 @@ public class NotificationsGatewayImpl implements NotificationsGateway {
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchLatestByCategory(UserId userId, String category) {
+        return fetchLatest(userId).thenApply(list -> list == null ? List.of() : list.stream()
+                .filter(m -> category.equalsIgnoreCase(String.valueOf(m.get("category"))))
+                .toList());
+    }
 }

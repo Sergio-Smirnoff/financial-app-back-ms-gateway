@@ -158,6 +158,19 @@ public class FinancesGatewayImpl implements FinancesGateway {
                 .toFuture();
     }
 
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchMonthlyFlow(UserId userId, LocalDate from, LocalDate to) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/transactions/summary/monthly?from={from}&to={to}", from, to)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
     private List<CurrencySummary> toCurrencySummaries(GatewayApiResponse<Map<String, FinanceCurrencyTotals>> response) {
         Map<String, FinanceCurrencyTotals> byCurrency = response.data();
         if (byCurrency == null) {

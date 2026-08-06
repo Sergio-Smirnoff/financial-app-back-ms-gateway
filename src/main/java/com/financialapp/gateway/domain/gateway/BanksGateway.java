@@ -24,5 +24,7 @@ public interface BanksGateway {
 
     CompletableFuture<List<Map<String, Object>>> fetchBalanceSnapshots(UserId userId, LocalDate from, LocalDate to);
 
+    CompletableFuture<List<Map<String, Object>>> fetchLoans(UserId userId);
+
     CompletableFuture<List<Map<String, Object>>> fetchFees(UserId userId);
 }
