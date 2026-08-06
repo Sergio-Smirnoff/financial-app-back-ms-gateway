@@ -3,6 +3,7 @@ package com.financialapp.gateway.application.bff;
 import com.financialapp.gateway.application.bff.impl.GetTransactionDetailBffUseCaseImpl;
 import com.financialapp.gateway.application.bff.impl.GetTransactionsBffUseCaseImpl;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.UploadGateway;
 import com.financialapp.gateway.domain.model.bff.TransactionDetailBffData;
@@ -28,21 +29,24 @@ import static org.mockito.Mockito.when;
 class TransactionsBffTest {
 
     @Mock private FinancesGateway finances;
+    @Mock private BanksGateway banks;
     @Mock private UploadGateway upload;
 
     @Test
     void execute_returnsOkSectionsForTransactionsList() {
-        GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(finances, PageTimeoutBudget.fromMillis(3000));
+        GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(finances, banks, PageTimeoutBudget.fromMillis(3000));
 
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), eq(0), eq(20), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
         when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchUncategorisedCount(any())).thenReturn(CompletableFuture.completedFuture(Map.of("count", 0)));
 
         TransactionsBffData data = useCase.execute(new UserId(1L), 0, 20, null, null, null, null, CurrencyView.ARS, "none").join();
 
         assertThat(data.summary().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.page().status()).isEqualTo(SectionStatus.OK);
+        assertThat(data.filterOptions().status()).isEqualTo(SectionStatus.OK);
     }
 
     @Test
