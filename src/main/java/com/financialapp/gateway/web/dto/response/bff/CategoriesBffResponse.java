@@ -1,13 +1,13 @@
 package com.financialapp.gateway.web.dto.response.bff;
 
 import com.financialapp.gateway.web.dto.response.SectionResponse;
+import com.financialapp.gateway.web.dto.response.bff.BffWebResponses.*;
 
 import java.util.List;
-import java.util.Map;
 
 public record CategoriesBffResponse(
-        SectionResponse<Map<String, Object>> kpis,
-        SectionResponse<List<Map<String, Object>>> budgets,
-        SectionResponse<Map<String, Object>> selectedTrend,
-        SectionResponse<List<Map<String, Object>>> rules
+        SectionResponse<CategoriesKpisResponse> kpis,
+        SectionResponse<List<BudgetRowResponse>> budgets,
+        SectionResponse<CategoryTrendResponse> selectedTrend,
+        SectionResponse<List<RuleRowResponse>> rules
 ) {}

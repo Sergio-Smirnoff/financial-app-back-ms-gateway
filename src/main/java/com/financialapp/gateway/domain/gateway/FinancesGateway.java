@@ -29,4 +29,6 @@ public interface FinancesGateway {
     CompletableFuture<Map<String, Object>> fetchUncategorisedCount(UserId userId);
 
     CompletableFuture<List<Map<String, Object>>> searchTransactions(UserId userId, String query);
+
+    CompletableFuture<List<Map<String, Object>>> fetchMonthlyFlow(UserId userId, LocalDate from, LocalDate to);
 }

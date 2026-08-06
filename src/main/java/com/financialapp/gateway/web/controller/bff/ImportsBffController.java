@@ -30,8 +30,8 @@ public class ImportsBffController {
 
         return Mono.fromFuture(getImportsBffUseCase.execute(new UserId(userId)))
                 .map(data -> ApiResponse.ok(new ImportsBffResponse(
-                        BffMapper.toSectionResponse(data.activeRun()),
-                        BffMapper.toSectionResponse(data.history()),
-                        BffMapper.toSectionResponse(data.reconciliation()))));
+                        BffMapper.toSectionResponse(data.activeRun(), BffMapper::toActiveRunResponse),
+                        BffMapper.toSectionResponse(data.history(), list -> list.stream().map(BffMapper::toImportRunRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.reconciliation(), list -> list.stream().map(BffMapper::toReconciliationRowResponse).toList()))));
     }
 }

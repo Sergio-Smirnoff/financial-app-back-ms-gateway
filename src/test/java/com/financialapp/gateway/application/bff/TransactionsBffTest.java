@@ -5,6 +5,7 @@ import com.financialapp.gateway.application.bff.impl.GetTransactionsBffUseCaseIm
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
+import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.UploadGateway;
 import com.financialapp.gateway.domain.model.bff.TransactionDetailBffData;
 import com.financialapp.gateway.domain.model.bff.TransactionsBffData;
@@ -30,14 +31,15 @@ class TransactionsBffTest {
 
     @Mock private FinancesGateway finances;
     @Mock private BanksGateway banks;
+    @Mock private InvestmentsGateway investments;
     @Mock private UploadGateway upload;
 
     @Test
     void execute_returnsOkSectionsForTransactionsList() {
-        GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(finances, banks, PageTimeoutBudget.fromMillis(3000));
+        GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(finances, banks, investments, PageTimeoutBudget.fromMillis(3000));
 
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), eq(0), eq(20), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(finances.fetchTransactions(any(), eq(0), eq(20), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
         when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchUncategorisedCount(any())).thenReturn(CompletableFuture.completedFuture(Map.of("count", 0)));
@@ -59,7 +61,7 @@ class TransactionsBffTest {
         TransactionDetailBffData data = detailUseCase.execute(new UserId(1L), 100L).join();
 
         assertThat(data.detail().status()).isEqualTo(SectionStatus.OK);
-        assertThat(data.detail().data()).containsEntry("id", 100L);
-        assertThat(data.detail().data()).containsKey("importRun");
+        assertThat(data.detail().data().transaction().id()).isEqualTo(100L);
+        assertThat(data.detail().data().origin().runId()).isEqualTo(50L);
     }
 }

@@ -120,6 +120,19 @@ public class BanksGatewayImpl implements BanksGateway {
     }
 
     @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchLoans(UserId userId) {
+        return webClient.get()
+                .uri(banksUrl + "/api/v1/banks/loans")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
     public CompletableFuture<List<Map<String, Object>>> fetchFees(UserId userId) {
         return webClient.get()
                 .uri(banksUrl + "/api/v1/banks/fees")

@@ -8,6 +8,7 @@ import com.financialapp.gateway.domain.model.currency.FxRate;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public interface InvestmentsGateway {
@@ -28,4 +29,8 @@ public interface InvestmentsGateway {
     CompletableFuture<List<Map<String, Object>>> fetchBrokerFees(UserId userId);
 
     CompletableFuture<List<Map<String, Object>>> searchPositions(UserId userId, String query);
+
+    default CompletableFuture<Optional<FxRate>> fetchFxRate(CurrencyView view, LocalDate date) {
+        return fetchFxRates(date, date, view).thenApply(rates -> rates.stream().findFirst());
+    }
 }

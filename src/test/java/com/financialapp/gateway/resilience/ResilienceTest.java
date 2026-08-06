@@ -40,7 +40,7 @@ class ResilienceTest {
         CompletableFuture<List<Map<String, Object>>> slowFuture = new CompletableFuture<>(); // never completes
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
-        when(banks.fetchBalanceSnapshots(any(), any(), any())).thenReturn(slowFuture);
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(slowFuture);
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))

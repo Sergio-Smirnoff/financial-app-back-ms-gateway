@@ -42,9 +42,9 @@ public class CategoriesBffController {
 
         return Mono.fromFuture(getCategoriesBffUseCase.execute(new UserId(userId), view, secondary))
                 .map(data -> ApiResponse.ok(new CategoriesBffResponse(
-                        BffMapper.toSectionResponse(data.kpis()),
-                        BffMapper.toSectionResponse(data.budgets()),
-                        BffMapper.toSectionResponse(data.selectedTrend()),
-                        BffMapper.toSectionResponse(data.rules()))));
+                        BffMapper.toSectionResponse(data.kpis(), BffMapper::toCategoriesKpisResponse),
+                        BffMapper.toSectionResponse(data.budgets(), list -> list.stream().map(BffMapper::toBudgetRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.selectedTrend(), BffMapper::toCategoryTrendResponse),
+                        BffMapper.toSectionResponse(data.rules(), list -> list.stream().map(BffMapper::toRuleRowResponse).toList()))));
     }
 }

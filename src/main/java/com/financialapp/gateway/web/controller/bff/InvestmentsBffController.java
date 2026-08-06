@@ -42,12 +42,12 @@ public class InvestmentsBffController {
 
         return Mono.fromFuture(getInvestmentsBffUseCase.execute(new UserId(userId), view, secondary))
                 .map(data -> ApiResponse.ok(new InvestmentsBffResponse(
-                        BffMapper.toSectionResponse(data.marketStrip()),
-                        BffMapper.toSectionResponse(data.kpis()),
-                        BffMapper.toSectionResponse(data.evolution()),
-                        BffMapper.toSectionResponse(data.positions()),
-                        BffMapper.toSectionResponse(data.composition()),
-                        BffMapper.toSectionResponse(data.recentOperations()),
-                        BffMapper.toSectionResponse(data.alerts()))));
+                        BffMapper.toSectionResponse(data.marketStrip(), list -> list.stream().map(BffMapper::toMarketQuoteResponse).toList()),
+                        BffMapper.toSectionResponse(data.kpis(), BffMapper::toInvestmentsKpisResponse),
+                        BffMapper.toSectionResponse(data.evolution(), list -> list.stream().map(BffMapper::toEvolutionPointResponse).toList()),
+                        BffMapper.toSectionResponse(data.positions(), list -> list.stream().map(BffMapper::toPositionRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.composition(), list -> list.stream().map(BffMapper::toCompositionSliceResponse).toList()),
+                        BffMapper.toSectionResponse(data.recentOperations(), list -> list.stream().map(BffMapper::toOperationRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.alerts(), list -> list.stream().map(BffMapper::toAlertRowResponse).toList()))));
     }
 }

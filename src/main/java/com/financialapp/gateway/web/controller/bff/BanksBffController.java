@@ -42,12 +42,12 @@ public class BanksBffController {
 
         return Mono.fromFuture(getBanksBffUseCase.execute(new UserId(userId), view, secondary))
                 .map(data -> ApiResponse.ok(new BanksBffResponse(
-                        BffMapper.toSectionResponse(data.kpis()),
-                        BffMapper.toSectionResponse(data.accounts()),
-                        BffMapper.toSectionResponse(data.cards()),
-                        BffMapper.toSectionResponse(data.loans()),
-                        BffMapper.toSectionResponse(data.importHealth()),
-                        BffMapper.toSectionResponse(data.cashDistribution()),
-                        BffMapper.toSectionResponse(data.paymentCalendar()))));
+                        BffMapper.toSectionResponse(data.kpis(), BffMapper::toBanksKpisResponse),
+                        BffMapper.toSectionResponse(data.accounts(), list -> list.stream().map(BffMapper::toAccountRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.cards(), list -> list.stream().map(BffMapper::toCardRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.loans(), list -> list.stream().map(BffMapper::toLoanRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.importHealth(), list -> list.stream().map(BffMapper::toImportHealthRowResponse).toList()),
+                        BffMapper.toSectionResponse(data.cashDistribution(), list -> list.stream().map(BffMapper::toCompositionSliceResponse).toList()),
+                        BffMapper.toSectionResponse(data.paymentCalendar(), list -> list.stream().map(BffMapper::toCalendarEntryResponse).toList()))));
     }
 }

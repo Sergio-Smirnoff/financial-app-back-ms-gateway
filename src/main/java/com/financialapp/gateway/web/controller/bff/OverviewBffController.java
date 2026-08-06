@@ -42,13 +42,13 @@ public class OverviewBffController {
 
         return Mono.fromFuture(getOverviewBffUseCase.execute(new UserId(userId), view, secondary))
                 .map(data -> ApiResponse.ok(new OverviewBffResponse(
-                        BffMapper.toSectionResponse(data.kpis()),
-                        BffMapper.toSectionResponse(data.netWorth()),
-                        BffMapper.toSectionResponse(data.breakdown()),
-                        BffMapper.toSectionResponse(data.flow()),
-                        BffMapper.toSectionResponse(data.committed()),
-                        BffMapper.toSectionResponse(data.upcomingPayments()),
-                        BffMapper.toSectionResponse(data.spendByCategory()),
-                        BffMapper.toSectionResponse(data.latestMovements()))));
+                        BffMapper.toSectionResponse(data.kpis(), BffMapper::toOverviewKpisResponse),
+                        BffMapper.toSectionResponse(data.netWorth(), BffMapper::toNetWorthResponse),
+                        BffMapper.toSectionResponse(data.breakdown(), BffMapper::toBreakdownResponse),
+                        BffMapper.toSectionResponse(data.flow(), list -> list.stream().map(BffMapper::toFlowPointResponse).toList()),
+                        BffMapper.toSectionResponse(data.committed(), list -> list.stream().map(BffMapper::toCommittedPointResponse).toList()),
+                        BffMapper.toSectionResponse(data.upcomingPayments(), list -> list.stream().map(BffMapper::toUpcomingPaymentResponse).toList()),
+                        BffMapper.toSectionResponse(data.spendByCategory(), list -> list.stream().map(BffMapper::toCategorySpendResponse).toList()),
+                        BffMapper.toSectionResponse(data.latestMovements(), list -> list.stream().map(BffMapper::toTransactionRowResponse).toList()))));
     }
 }

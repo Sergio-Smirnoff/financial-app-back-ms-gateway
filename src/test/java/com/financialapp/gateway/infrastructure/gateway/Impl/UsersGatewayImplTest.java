@@ -1,6 +1,7 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
+import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.FxRateMode;
 import com.financialapp.gateway.domain.model.currency.ManualCurrencyRate;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -69,5 +71,25 @@ class UsersGatewayImplTest {
             """;
         List<ManualCurrencyRate> result = gatewayReturning(json).manualCurrencyRates(42L).join();
         assertThat(result).containsExactly(new ManualCurrencyRate(Currency.EUR, new BigDecimal("1200.00")));
+    }
+
+    @Test
+    void fetchProfileCallsTheRealUsersPath() {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    assertThat(request.url().getPath()).isEqualTo("/api/v1/users/me/profile");
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("""
+                                    {"success":true,"data":{"name":"Ana","email":"ana@example.com","createdAt":"2026-01-01T00:00:00Z"}}""")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setUsersUrl("http://users.test");
+        UsersGatewayImpl gateway = new UsersGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        Map<String, Object> profile = gateway.fetchProfile(new UserId(1L)).join();
+        assertThat(profile.get("email")).isEqualTo("ana@example.com");
     }
 }

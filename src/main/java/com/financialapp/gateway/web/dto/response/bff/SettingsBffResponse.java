@@ -1,14 +1,14 @@
 package com.financialapp.gateway.web.dto.response.bff;
 
 import com.financialapp.gateway.web.dto.response.SectionResponse;
+import com.financialapp.gateway.web.dto.response.bff.BffWebResponses.*;
 
 import java.util.List;
-import java.util.Map;
 
 public record SettingsBffResponse(
-        SectionResponse<Map<String, Object>> profile,
-        SectionResponse<Map<String, Object>> preferences,
-        SectionResponse<Map<String, Object>> fees,
-        SectionResponse<List<Map<String, Object>>> notificationPrefs,
-        SectionResponse<List<Map<String, Object>>> sessions
+        SectionResponse<UserProfileResponse> profile,
+        SectionResponse<UserPreferencesResponse> preferences,
+        SectionResponse<FeesSummaryResponse> fees,
+        SectionResponse<List<NotificationPreferenceResponse>> notificationPrefs,
+        SectionResponse<List<SessionRowResponse>> sessions
 ) {}

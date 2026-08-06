@@ -30,10 +30,10 @@ public class SettingsBffController {
 
         return Mono.fromFuture(getSettingsBffUseCase.execute(new UserId(userId)))
                 .map(data -> ApiResponse.ok(new SettingsBffResponse(
-                        BffMapper.toSectionResponse(data.profile()),
-                        BffMapper.toSectionResponse(data.preferences()),
-                        BffMapper.toSectionResponse(data.fees()),
-                        BffMapper.toSectionResponse(data.notificationPrefs()),
-                        BffMapper.toSectionResponse(data.sessions()))));
+                        BffMapper.toSectionResponse(data.profile(), BffMapper::toUserProfileResponse),
+                        BffMapper.toSectionResponse(data.preferences(), BffMapper::toUserPreferencesResponse),
+                        BffMapper.toSectionResponse(data.fees(), BffMapper::toFeesSummaryResponse),
+                        BffMapper.toSectionResponse(data.notificationPrefs(), list -> list.stream().map(BffMapper::toNotificationPreferenceResponse).toList()),
+                        BffMapper.toSectionResponse(data.sessions(), list -> list.stream().map(BffMapper::toSessionRowResponse).toList()))));
     }
 }

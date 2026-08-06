@@ -6,18 +6,25 @@ import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
+import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
+import com.financialapp.gateway.domain.model.currency.FxRate;
+import com.financialapp.gateway.domain.model.currency.FxRateMode;
+import com.financialapp.gateway.infrastructure.gateway.dto.FinanceCurrencyTotals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,8 +51,8 @@ class OverviewBffTest {
     @Test
     void execute_returnsOkSectionsWhenAllDownstreamsSucceed() {
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("total", 1000)));
-        when(banks.fetchBalanceSnapshots(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", 1000)));
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
@@ -61,8 +68,8 @@ class OverviewBffTest {
     @Test
     void execute_degradesSectionToUnavailableWhenDownstreamFails() {
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Finances down")));
-        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("total", 1000)));
-        when(banks.fetchBalanceSnapshots(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", 1000)));
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
@@ -72,5 +79,43 @@ class OverviewBffTest {
 
         assertThat(data.kpis().status()).isEqualTo(SectionStatus.UNAVAILABLE);
         assertThat(data.netWorth().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void kpisCarrySecondaryWhenRateExists() {
+        LocalDate today = LocalDate.now();
+        when(investments.fetchFxRate(CurrencyView.USD_MEP, today))
+                .thenReturn(CompletableFuture.completedFuture(Optional.of(new FxRate(today, FxRateMode.MEP, new BigDecimal("1180"), new BigDecimal("1190")))));
+        when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                new com.financialapp.gateway.domain.model.dashboard.CurrencySummary("ARS", "11900.00", "0.00", "11900.00")
+        )));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
+
+        OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "ARS").join();
+
+        MoneyFigure cash = data.kpis().data().cash();
+        assertThat(cash.currency().getCurrencyCode()).isEqualTo("USD");
+        assertThat(cash.secondary().currency().getCurrencyCode()).isEqualTo("ARS");
+    }
+
+    @Test
+    void kpisOmitSecondaryWhenNoRateExists() {
+        when(investments.fetchFxRate(any(), any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
+
+        OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "ARS").join();
+
+        assertThat(data.kpis().data().cash().secondary()).isNull();
     }
 }

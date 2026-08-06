@@ -12,6 +12,10 @@ public record Currency(String code) {
         code = code.toUpperCase().trim();
     }
 
+    public String getCurrencyCode() {
+        return code;
+    }
+
     public static Currency of(String code) {
         return new Currency(code);
     }
