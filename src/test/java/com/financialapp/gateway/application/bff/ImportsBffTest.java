@@ -18,6 +18,8 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,11 +36,20 @@ class ImportsBffTest {
 
     @Test
     void execute_returnsOkSectionsForImports() {
-        when(upload.fetchHistory(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("id", 1L))));
+        when(upload.fetchHistory(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("runId", 1L))));
 
         ImportsBffData data = useCase.execute(new UserId(1L)).join();
 
         assertThat(data.activeRun().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.history().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void importsCallHistoryExactlyOnce() {
+        UserId user = new UserId(1L);
+        when(upload.fetchHistory(user)).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        useCase.execute(user).join();
+        verify(upload, times(1)).fetchHistory(user);
     }
 }
