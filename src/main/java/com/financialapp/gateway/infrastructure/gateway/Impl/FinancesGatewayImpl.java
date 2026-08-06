@@ -21,6 +21,10 @@ public class FinancesGatewayImpl implements FinancesGateway {
 
     private static final ParameterizedTypeReference<GatewayApiResponse<Map<String, FinanceCurrencyTotals>>> SUMMARY_TYPE =
             new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<Map<String, Object>>> MAP_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<Map<String, Object>>>> LIST_MAP_TYPE =
+            new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
     private final String financesUrl;
@@ -40,6 +44,116 @@ public class FinancesGatewayImpl implements FinancesGateway {
                 .retrieve()
                 .bodyToMono(SUMMARY_TYPE)
                 .map(this::toCurrencySummaries)
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Object>> fetchTransactions(
+            UserId userId, int page, int size, List<String> categories, List<String> accounts, LocalDate from, LocalDate to) {
+        return webClient.get()
+                .uri(builder -> builder.path(financesUrl + "/api/v1/finances/transactions")
+                        .queryParam("page", page)
+                        .queryParam("size", size)
+                        .queryParam("from", from)
+                        .queryParam("to", to)
+                        .build())
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Object>> fetchTransactionById(UserId userId, Long id) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/transactions/{id}", id)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchBudgets(UserId userId, String period) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/budgets?period={period}", period)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Object>> fetchBudgetPace(UserId userId, String period) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/budgets/pace?period={period}", period)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchCategorizationRules(UserId userId) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/categorization-rules")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchSpendByCategory(UserId userId, LocalDate from, LocalDate to, String kind) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/categories/spend?from={from}&to={to}&kind={kind}", from, to, kind)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Object>> fetchUncategorisedCount(UserId userId) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/transactions/uncategorised/count")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> searchTransactions(UserId userId, String query) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/transactions/search?q={query}", query)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }

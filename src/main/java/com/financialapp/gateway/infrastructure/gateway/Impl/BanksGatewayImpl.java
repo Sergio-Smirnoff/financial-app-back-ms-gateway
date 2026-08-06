@@ -7,7 +7,6 @@ import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.dashboard.LoanView;
 import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
-import com.financialapp.gateway.infrastructure.gateway.dto.AccountResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.LoanResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.UpcomingPaymentResponse;
@@ -17,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -24,9 +24,11 @@ public class BanksGatewayImpl implements BanksGateway {
 
     private static final ParameterizedTypeReference<GatewayApiResponse<List<LoanResponse>>> LOANS_TYPE =
             new ParameterizedTypeReference<>() {};
-    private static final ParameterizedTypeReference<GatewayApiResponse<List<UpcomingPaymentResponse>>> PAYMENTS_TYPE =
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<UpcomingPaymentResponse>>> UPCOMING_TYPE =
             new ParameterizedTypeReference<>() {};
-    private static final ParameterizedTypeReference<GatewayApiResponse<List<AccountResponse>>> ACCOUNTS_TYPE =
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<String>>> CURRENCIES_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<Map<String, Object>>>> LIST_MAP_TYPE =
             new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
@@ -42,15 +44,13 @@ public class BanksGatewayImpl implements BanksGateway {
     @Override
     public CompletableFuture<List<LoanView>> fetchActiveLoans(UserId userId) {
         return webClient.get()
-                .uri(banksUrl + "/api/v1/banks/loans")
+                .uri(banksUrl + "/api/v1/banks/loans?active=true")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(LOANS_TYPE)
-                .map(response -> nullSafe(response.data()).stream()
+                .map(r -> r.data() == null ? List.<LoanView>of() : r.data().stream()
                         .filter(LoanResponse::active)
-                        .map(l -> new LoanView(
-                                l.id(), l.name(), l.currency(), l.principal(),
-                                l.totalInstallments(), l.remainingInstallments(), l.active()))
+                        .map(this::toLoanView)
                         .toList())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
@@ -62,12 +62,8 @@ public class BanksGatewayImpl implements BanksGateway {
                 .uri(banksUrl + "/api/v1/banks/upcoming-payments?from={from}&to={to}", from, to)
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
-                .bodyToMono(PAYMENTS_TYPE)
-                .map(response -> nullSafe(response.data()).stream()
-                        .map(p -> new UpcomingPaymentView(
-                                p.id(), p.type(), p.description(), p.amount(), p.currency(), p.dueDate(),
-                                p.installmentNumber(), p.totalInstallments(), p.paid()))
-                        .toList())
+                .bodyToMono(UPCOMING_TYPE)
+                .map(r -> r.data() == null ? List.<UpcomingPaymentView>of() : r.data().stream().map(this::toUpcomingView).toList())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
@@ -75,21 +71,76 @@ public class BanksGatewayImpl implements BanksGateway {
     @Override
     public CompletableFuture<List<Currency>> accountCurrencies(UserId userId) {
         return webClient.get()
-                .uri(banksUrl + "/api/v1/banks/accounts")
+                .uri(banksUrl + "/api/v1/banks/accounts/currencies")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
-                .bodyToMono(ACCOUNTS_TYPE)
-                .map(response -> nullSafe(response.data()).stream()
-                        .map(AccountResponse::currency)
-                        .filter(c -> c != null && !c.isBlank())
-                        .map(Currency::of)
-                        .distinct()
-                        .toList())
+                .bodyToMono(CURRENCIES_TYPE)
+                .map(r -> r.data() == null ? List.<Currency>of() : r.data().stream().map(Currency::new).toList())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
 
-    private static <T> List<T> nullSafe(List<T> list) {
-        return list == null ? List.of() : list;
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchAccounts(UserId userId) {
+        return webClient.get()
+                .uri(banksUrl + "/api/v1/banks/accounts")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchCards(UserId userId) {
+        return webClient.get()
+                .uri(banksUrl + "/api/v1/banks/cards")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchBalanceSnapshots(UserId userId, LocalDate from, LocalDate to) {
+        return webClient.get()
+                .uri(banksUrl + "/api/v1/banks/balance-snapshots?from={from}&to={to}", from, to)
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchFees(UserId userId) {
+        return webClient.get()
+                .uri(banksUrl + "/api/v1/banks/fees")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    private LoanView toLoanView(LoanResponse dto) {
+        return new LoanView(
+                dto.id(), dto.name(), dto.currency(), dto.principal(),
+                dto.totalInstallments(), dto.remainingInstallments(), dto.active());
+    }
+
+    private UpcomingPaymentView toUpcomingView(UpcomingPaymentResponse dto) {
+        return new UpcomingPaymentView(
+                dto.id(), dto.type(), dto.description(), dto.amount(), dto.currency(),
+                dto.dueDate(), dto.installmentNumber(), dto.totalInstallments(), dto.paid());
     }
 }

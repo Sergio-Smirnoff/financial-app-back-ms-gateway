@@ -1,6 +1,7 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
+import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.UsersGateway;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.FxRateMode;
@@ -16,6 +17,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -25,6 +27,10 @@ public class UsersGatewayImpl implements UsersGateway {
     private static final ParameterizedTypeReference<GatewayApiResponse<UserPreferencesResponse>> PREFERENCES_TYPE =
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<GatewayApiResponse<List<ManualCurrencyRateResponse>>> RATES_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<Map<String, Object>>> MAP_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<Map<String, Object>>>> LIST_MAP_TYPE =
             new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
@@ -60,6 +66,45 @@ public class UsersGatewayImpl implements UsersGateway {
                         .map(this::toManualCurrencyRate)
                         .filter(Objects::nonNull)
                         .toList())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchSessions(UserId userId) {
+        return webClient.get()
+                .uri(usersUrl + "/api/v1/users/me/sessions")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Object>> fetchPreferences(UserId userId) {
+        return webClient.get()
+                .uri(usersUrl + "/api/v1/users/me/preferences")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Object>> fetchProfile(UserId userId) {
+        return webClient.get()
+                .uri(usersUrl + "/api/v1/users/me/profile")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
