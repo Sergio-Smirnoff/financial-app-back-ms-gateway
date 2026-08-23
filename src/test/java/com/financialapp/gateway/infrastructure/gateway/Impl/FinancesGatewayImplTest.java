@@ -2,7 +2,7 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
-import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;

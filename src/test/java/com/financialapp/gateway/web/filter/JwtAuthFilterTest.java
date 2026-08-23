@@ -46,7 +46,7 @@ class JwtAuthFilterTest {
         when(errorRenderer.render(any(), eq(HttpStatus.UNAUTHORIZED), any(), any()))
                 .thenReturn(Mono.empty());
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/api/v1/dashboard/data").build());
+                MockServerHttpRequest.get("/api/v1/bff/overview").build());
 
         filter.filter(exchange, chain).block();
 
@@ -64,7 +64,7 @@ class JwtAuthFilterTest {
         });
 
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/api/v1/dashboard/data")
+                MockServerHttpRequest.get("/api/v1/bff/overview")
                         .cookie(new HttpCookie("access_token", "valid-token"))
                         .build());
 
@@ -79,7 +79,7 @@ class JwtAuthFilterTest {
                 .thenReturn(Mono.empty());
 
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/api/v1/dashboard/data")
+                MockServerHttpRequest.get("/api/v1/bff/overview")
                         .cookie(new HttpCookie("access_token", "invalid-token"))
                         .build());
 

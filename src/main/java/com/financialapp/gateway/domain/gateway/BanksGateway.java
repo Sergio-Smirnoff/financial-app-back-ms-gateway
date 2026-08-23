@@ -2,8 +2,8 @@ package com.financialapp.gateway.domain.gateway;
 
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.currency.Currency;
-import com.financialapp.gateway.domain.model.dashboard.LoanView;
-import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
+import com.financialapp.gateway.domain.model.bff.LoanView;
+import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 
 import java.time.LocalDate;
 import java.util.List;
