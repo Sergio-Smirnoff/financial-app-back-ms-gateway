@@ -1,5 +1,6 @@
 package com.financialapp.gateway.application.bff.impl;
 
+import com.financialapp.gateway.application.bff.impl.LoanScheduleSupport.LoanWithSchedule;
 import com.financialapp.gateway.application.bff.impl.LoanScheduleSupport.ParsedInstallment;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
@@ -59,7 +60,8 @@ public class GetLoansBffUseCaseImpl implements GetLoansBffUseCase {
         CompletableFuture<List<Map<String, Object>>> loansFuture = banks.fetchLoans(userId);
         CompletableFuture<List<Map<String, Object>>> accountsFuture = banks.fetchAccounts(userId);
 
-        CompletableFuture<List<LoanWithSchedule>> enrichedFuture = enrich(userId, loansFuture);
+        CompletableFuture<List<LoanWithSchedule>> enrichedFuture = loansFuture.thenCompose(
+                loans -> LoanScheduleSupport.enrich(loans, loanId -> banks.fetchLoanInstallments(userId, loanId)));
 
         CompletableFuture<Section<List<LoanDetailRow>>> loansSec = applyBudget(
                 Section.guard(
@@ -87,19 +89,6 @@ public class GetLoansBffUseCaseImpl implements GetLoansBffUseCase {
 
         return CompletableFuture.allOf(kpisSec, loansSec, payFromAccountsSec)
                 .thenApply(v -> new LoansBffData(kpisSec.join(), loansSec.join(), payFromAccountsSec.join()));
-    }
-
-    private record LoanWithSchedule(Map<String, Object> loan, List<ParsedInstallment> schedule) {}
-
-    private CompletableFuture<List<LoanWithSchedule>> enrich(UserId userId, CompletableFuture<List<Map<String, Object>>> loansFuture) {
-        return loansFuture.thenCompose(loans -> {
-            List<CompletableFuture<LoanWithSchedule>> perLoan = loans.stream()
-                    .map(l -> banks.fetchLoanInstallments(userId, parseLong(l.get("id")))
-                            .thenApply(raw -> new LoanWithSchedule(l, LoanScheduleSupport.parse(raw))))
-                    .toList();
-            return CompletableFuture.allOf(perLoan.toArray(CompletableFuture[]::new))
-                    .thenApply(v -> perLoan.stream().map(CompletableFuture::join).toList());
-        });
     }
 
     private static LoanDetailRow toDetailRow(LoanWithSchedule enriched, CurrencyView currencyView, String secondary, Optional<FxRate> fx) {

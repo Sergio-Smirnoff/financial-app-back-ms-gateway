@@ -6,12 +6,27 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 public final class LoanScheduleSupport {
 
     public record ParsedInstallment(Long id, Integer number, BigDecimal amount, LocalDate dueDate, Boolean paid, LocalDate paidDate) {}
 
+    public record LoanWithSchedule(Map<String, Object> loan, List<ParsedInstallment> schedule) {}
+
     private LoanScheduleSupport() {}
+
+    public static CompletableFuture<List<LoanWithSchedule>> enrich(
+            List<Map<String, Object>> loans,
+            Function<Long, CompletableFuture<List<Map<String, Object>>>> installmentsByLoanId) {
+        List<CompletableFuture<LoanWithSchedule>> perLoan = loans.stream()
+                .map(loan -> installmentsByLoanId.apply(asLong(loan.get("id")))
+                        .thenApply(raw -> new LoanWithSchedule(loan, parse(raw))))
+                .toList();
+        return CompletableFuture.allOf(perLoan.toArray(CompletableFuture[]::new))
+                .thenApply(v -> perLoan.stream().map(CompletableFuture::join).toList());
+    }
 
     public static List<ParsedInstallment> parse(List<Map<String, Object>> raw) {
         return raw.stream()

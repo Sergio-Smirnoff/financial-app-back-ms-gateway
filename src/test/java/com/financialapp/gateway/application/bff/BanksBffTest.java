@@ -17,12 +17,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,5 +83,30 @@ class BanksBffTest {
         ImportHealthRow row = data.importHealth().data().getFirst();
         assertThat(row.status()).isEqualTo(ImportStatus.NEVER);
         assertThat(row.daysSince()).isNull();
+    }
+
+    @Test
+    void loans_section_reads_real_ms_banks_keys_and_computes_outstanding() {
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of(
+                "id", 1, "name", "Auto", "principal", "18000.00", "currency", "ARS",
+                "totalInstallments", 12, "remainingInstallments", 10, "active", true))));
+        when(banks.fetchLoanInstallments(any(), eq(1L))).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("id", 11, "installmentNumber", 1, "amount", "1800.00", "dueDate", "2026-08-10", "paid", true),
+                Map.of("id", 12, "installmentNumber", 2, "amount", "1800.00", "dueDate", "2026-09-10", "paid", false))));
+        when(upload.fetchHistory(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        BanksBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        var row = data.loans().data().getFirst();
+        assertThat(row.label()).isEqualTo("Auto");
+        assertThat(row.principal()).isEqualByComparingTo(new BigDecimal("18000.00"));
+        assertThat(row.outstanding().amount()).isEqualByComparingTo(new BigDecimal("1800.00"));
+        assertThat(row.installmentsPaid()).isEqualTo(2);
+        assertThat(row.installmentsTotal()).isEqualTo(12);
+        assertThat(row.nextInstallmentDate()).isEqualTo(LocalDate.of(2026, 9, 10));
+        assertThat(data.kpis().data().loanBalance().amount()).isEqualByComparingTo(new BigDecimal("1800.00"));
     }
 }

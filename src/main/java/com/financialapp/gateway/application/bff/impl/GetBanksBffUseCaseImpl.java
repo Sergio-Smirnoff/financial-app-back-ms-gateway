@@ -1,5 +1,7 @@
 package com.financialapp.gateway.application.bff.impl;
 
+import com.financialapp.gateway.application.bff.impl.LoanScheduleSupport.LoanWithSchedule;
+import com.financialapp.gateway.application.bff.impl.LoanScheduleSupport.ParsedInstallment;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
@@ -70,16 +72,20 @@ public class GetBanksBffUseCaseImpl implements GetBanksBffUseCase {
         CompletableFuture<List<Map<String, Object>>> cardsFuture = banks.fetchCards(userId);
         CompletableFuture<List<Map<String, Object>>> loansFuture = banks.fetchLoans(userId);
         CompletableFuture<List<Map<String, Object>>> uploadHistoryFuture = upload.fetchHistory(userId);
+        CompletableFuture<List<LoanWithSchedule>> enrichedLoansFuture = loansFuture.thenCompose(
+                loans -> LoanScheduleSupport.enrich(loans, loanId -> banks.fetchLoanInstallments(userId, loanId)));
 
         CompletableFuture<Section<BanksKpis>> kpisSec = applyBudget(
                 Section.guard(
-                        CompletableFuture.allOf(accountsFuture, cardsFuture, loansFuture, fxRateFuture)
+                        CompletableFuture.allOf(accountsFuture, cardsFuture, enrichedLoansFuture, fxRateFuture)
                                 .thenApply(v -> {
                                     Optional<FxRate> fx = fxRateFuture.join();
                                     List<Map<String, Object>> accList = accountsFuture.join();
                                     BigDecimal totalCash = accList.stream().map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal cardDebt = cardsFuture.join().stream().map(c -> parseDecimal(c.get("usedBalance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal loanBalance = loansFuture.join().stream().map(l -> parseDecimal(l.get("outstandingAmount"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal loanBalance = enrichedLoansFuture.join().stream()
+                                            .map(e -> LoanScheduleSupport.outstanding(e.schedule()))
+                                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                                     return new BanksKpis(
                                             BffMoneyConverter.convert(totalCash, Currency.ARS, currencyView, secondary, fx),
@@ -123,15 +129,17 @@ public class GetBanksBffUseCaseImpl implements GetBanksBffUseCase {
 
         CompletableFuture<Section<List<LoanRow>>> loansSec = applyBudget(
                 Section.guard(
-                        loansFuture.thenCombine(fxRateFuture, (list, fx) -> list.stream().map(l -> {
+                        enrichedLoansFuture.thenCombine(fxRateFuture, (list, fx) -> list.stream().map(e -> {
+                            Map<String, Object> l = e.loan();
                             Long id = parseLong(l.get("id"));
-                            String label = String.valueOf(l.getOrDefault("label", ""));
-                            BigDecimal principal = parseDecimal(l.get("principalAmount"));
-                            BigDecimal outstanding = parseDecimal(l.get("outstandingAmount"));
-                            LocalDate nextDate = parseDate(l.get("nextInstallmentDate"));
-                            Integer paid = parseInt(l.get("installmentsPaid"), 0);
-                            Integer total = parseInt(l.get("installmentsTotal"), 0);
-                            return new LoanRow(id, label, principal, BffMoneyConverter.convert(outstanding, Currency.ARS, currencyView, secondary, fx), nextDate, paid, total);
+                            String label = String.valueOf(l.getOrDefault("name", ""));
+                            BigDecimal principal = parseDecimal(l.get("principal"));
+                            BigDecimal outstanding = LoanScheduleSupport.outstanding(e.schedule());
+                            Currency currency = Currency.of(String.valueOf(l.getOrDefault("currency", "ARS")));
+                            LocalDate nextDate = LoanScheduleSupport.nextUnpaid(e.schedule()).map(ParsedInstallment::dueDate).orElse(null);
+                            int total = parseInt(l.get("totalInstallments"), 0);
+                            int paid = total - parseInt(l.get("remainingInstallments"), 0);
+                            return new LoanRow(id, label, principal, BffMoneyConverter.convert(outstanding, currency, currencyView, secondary, fx), nextDate, paid, total);
                         }).toList()),
                         List.of(), clock),
                 List.of());
