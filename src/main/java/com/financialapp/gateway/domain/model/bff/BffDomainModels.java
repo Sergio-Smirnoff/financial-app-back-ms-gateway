@@ -62,6 +62,16 @@ public class BffDomainModels {
     public record AccountRow(String cbu, String alias, String bankName, String type, MoneyFigure balance) {}
     public record CardRow(String cardNumber, String brand, String alias, BigDecimal limit, MoneyFigure used, BigDecimal usedPct, LocalDate closingDate, LocalDate dueDate) {}
     public record LoanRow(Long id, String label, BigDecimal principal, MoneyFigure outstanding, LocalDate nextInstallmentDate, Integer installmentsPaid, Integer installmentsTotal) {}
+    public record LoansKpis(MoneyFigure totalOutstanding, MoneyFigure monthlyPayment, Integer activeLoans, LocalDate nextDueDate) {
+        public static LoansKpis empty() {
+            return new LoansKpis(null, null, 0, null);
+        }
+    }
+
+    public record LoanDetailRow(Long id, String label, String bankNumber, MoneyFigure principal, MoneyFigure outstanding, BigDecimal interestRate, Integer installmentsPaid, Integer installmentsTotal, LocalDate nextInstallmentDate, MoneyFigure nextInstallmentAmount, Boolean active) {}
+
+    public record InstallmentRow(Long id, Integer number, MoneyFigure amount, LocalDate dueDate, Boolean paid, LocalDate paidDate) {}
+
     public record ImportHealthRow(String cbu, String alias, Instant lastImportAt, Long daysSince, ImportStatus status) {}
     public record CompositionSlice(String label, MoneyFigure amount, BigDecimal pct) {}
     public record CalendarEntry(LocalDate date, String label, MoneyFigure amount, String kind) {}
