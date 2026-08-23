@@ -118,6 +118,27 @@ public final class BffMapper {
         return new LoanRowResponse(l.id(), l.label(), l.principal(), toMoneyView(l.outstanding()), l.nextInstallmentDate(), l.installmentsPaid(), l.installmentsTotal());
     }
 
+    public static LoansKpisResponse toLoansKpisResponse(LoansKpis k) {
+        if (k == null) return null;
+        return new LoansKpisResponse(toMoneyView(k.totalOutstanding()), toMoneyView(k.monthlyPayment()), k.activeLoans(), k.nextDueDate());
+    }
+
+    public static LoanDetailRowResponse toLoanDetailRowResponse(LoanDetailRow l) {
+        if (l == null) return null;
+        return new LoanDetailRowResponse(l.id(), l.label(), l.bankNumber(), toMoneyView(l.principal()), toMoneyView(l.outstanding()),
+                l.interestRate(), l.installmentsPaid(), l.installmentsTotal(), l.nextInstallmentDate(), toMoneyView(l.nextInstallmentAmount()), l.active());
+    }
+
+    public static InstallmentRowResponse toInstallmentRowResponse(InstallmentRow i) {
+        if (i == null) return null;
+        return new InstallmentRowResponse(i.id(), i.number(), toMoneyView(i.amount()), i.dueDate(), i.paid(), i.paidDate());
+    }
+
+    public static AccountOptionResponse toAccountOptionResponse(AccountOption a) {
+        if (a == null) return null;
+        return new AccountOptionResponse(a.cbu(), a.alias());
+    }
+
     public static ImportHealthRowResponse toImportHealthRowResponse(ImportHealthRow h) {
         if (h == null) return null;
         return new ImportHealthRowResponse(h.cbu(), h.alias(), h.lastImportAt(), h.daysSince(), h.status() != null ? h.status().name() : "NEVER");
@@ -146,7 +167,7 @@ public final class BffMapper {
 
     public static FilterOptionsResponse toFilterOptionsResponse(FilterOptions f) {
         if (f == null) return null;
-        List<AccountOptionResponse> accounts = f.accounts() == null ? List.of() : f.accounts().stream().map(a -> new AccountOptionResponse(a.cbu(), a.alias())).toList();
+        List<AccountOptionResponse> accounts = f.accounts() == null ? List.of() : f.accounts().stream().map(BffMapper::toAccountOptionResponse).toList();
         List<CategoryOptionResponse> categories = f.categories() == null ? List.of() : f.categories().stream().map(c -> new CategoryOptionResponse(c.id(), c.name())).toList();
         return new FilterOptionsResponse(accounts, categories, f.methods() != null ? f.methods() : List.of());
     }

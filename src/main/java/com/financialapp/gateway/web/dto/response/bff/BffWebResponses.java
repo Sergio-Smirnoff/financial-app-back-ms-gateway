@@ -54,6 +54,10 @@ public class BffWebResponses {
     public record AccountRowResponse(String cbu, String alias, String bankName, String type, MoneyView balance) {}
     public record CardRowResponse(String cardNumber, String brand, String alias, BigDecimal limit, MoneyView used, BigDecimal usedPct, LocalDate closingDate, LocalDate dueDate) {}
     public record LoanRowResponse(Long id, String label, BigDecimal principal, MoneyView outstanding, LocalDate nextInstallmentDate, Integer installmentsPaid, Integer installmentsTotal) {}
+    public record LoansKpisResponse(MoneyView totalOutstanding, MoneyView monthlyPayment, Integer activeLoans, LocalDate nextDueDate) {}
+    public record LoanDetailRowResponse(Long id, String label, String bankNumber, MoneyView principal, MoneyView outstanding, BigDecimal interestRate, Integer installmentsPaid, Integer installmentsTotal, LocalDate nextInstallmentDate, MoneyView nextInstallmentAmount, Boolean active) {}
+    public record InstallmentRowResponse(Long id, Integer number, MoneyView amount, LocalDate dueDate, Boolean paid, LocalDate paidDate) {}
+
     public record ImportHealthRowResponse(String cbu, String alias, Instant lastImportAt, Long daysSince, String status) {}
     public record CompositionSliceResponse(String label, MoneyView amount, BigDecimal pct) {}
     public record CalendarEntryResponse(LocalDate date, String label, MoneyView amount, String kind) {}
