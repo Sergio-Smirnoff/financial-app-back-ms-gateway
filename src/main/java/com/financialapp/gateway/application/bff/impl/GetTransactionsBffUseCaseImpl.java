@@ -13,6 +13,7 @@ import com.financialapp.gateway.domain.model.composition.Section;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
+import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionsBffUseCase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,14 +68,20 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
         CompletableFuture<Optional<FxRate>> fxRateFuture = currencyView != CurrencyView.ARS ?
                 investments.fetchFxRate(currencyView, today) : CompletableFuture.completedFuture(Optional.empty());
 
+        CompletableFuture<List<CurrencySummary>> summaryTotalsFuture = finances.fetchSummary(userId, summaryFrom, summaryTo);
+        CompletableFuture<Map<String, Object>> summaryWindowFuture =
+                finances.fetchTransactions(userId, 0, 1, categories, accounts, summaryFrom, summaryTo);
+
         CompletableFuture<Section<TransactionsSummary>> summarySec = applyBudget(
                 Section.guard(
-                        finances.fetchSummary(userId, summaryFrom, summaryTo)
-                                .thenCombine(fxRateFuture, (summaries, fx) -> {
+                        CompletableFuture.allOf(summaryTotalsFuture, summaryWindowFuture, fxRateFuture)
+                                .thenApply(v -> {
+                                    List<CurrencySummary> summaries = summaryTotalsFuture.join();
+                                    Optional<FxRate> fx = fxRateFuture.join();
                                     BigDecimal income = summaries.stream().map(s -> parseDecimal(s.totalIncome())).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal expense = summaries.stream().map(s -> parseDecimal(s.totalExpense())).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal net = income.subtract(expense);
-                                    long count = summaries.size();
+                                    long count = parseLongVal(summaryWindowFuture.join().get("totalElements"), 0L);
                                     return new TransactionsSummary(
                                             BffMoneyConverter.convert(income, Currency.ARS, currencyView, secondary, fx),
                                             BffMoneyConverter.convert(expense, Currency.ARS, currencyView, secondary, fx),
@@ -111,7 +118,8 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
                                     List<CategoryOption> catOpts = rules.stream().map(r ->
                                             new CategoryOption(parseLong(r.get("categoryId")), String.valueOf(r.getOrDefault("categoryName", "")))
                                     ).filter(c -> c.id() != null).distinct().toList();
-                                    List<String> methods = List.of("TRANSFER", "CARD", "CASH");
+                                    // Mirror of ms-finances PaymentMethod — there is no discovery endpoint for it.
+                                    List<String> methods = List.of("DEBIT_CARD", "CREDIT_CARD", "TRANSFER", "AUTOMATIC_DEBIT", "DEPOSIT", "OTHER");
                                     return new FilterOptions(accOpts, catOpts, methods);
                                 }),
                         FilterOptions.empty(), clock),
