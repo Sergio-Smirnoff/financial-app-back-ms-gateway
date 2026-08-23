@@ -5,10 +5,10 @@ import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
-import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.dashboard.DashboardData;
-import com.financialapp.gateway.domain.model.dashboard.LoanView;
-import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
+import com.financialapp.gateway.domain.model.bff.LoanView;
+import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;

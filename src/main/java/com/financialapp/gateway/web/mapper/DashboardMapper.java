@@ -1,10 +1,10 @@
 package com.financialapp.gateway.web.mapper;
 
 import com.financialapp.gateway.domain.model.composition.Section;
-import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.dashboard.DashboardData;
-import com.financialapp.gateway.domain.model.dashboard.LoanView;
-import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
+import com.financialapp.gateway.domain.model.bff.LoanView;
+import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.web.dto.response.DashboardResponse;
 import org.springframework.stereotype.Component;
 

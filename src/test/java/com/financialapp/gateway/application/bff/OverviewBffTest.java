@@ -6,8 +6,10 @@ import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
+import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
@@ -93,7 +95,7 @@ class OverviewBffTest {
         when(investments.fetchFxRate(CurrencyView.USD_MEP, today))
                 .thenReturn(CompletableFuture.completedFuture(Optional.of(new FxRate(today, FxRateMode.MEP, new BigDecimal("1180"), new BigDecimal("1190")))));
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
-                new com.financialapp.gateway.domain.model.dashboard.CurrencySummary("ARS", "11900.00", "0.00", "11900.00")
+                new CurrencySummary("ARS", "11900.00", "0.00", "11900.00")
         )));
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
@@ -137,7 +139,7 @@ class OverviewBffTest {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", "500000")));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
-                new com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView(1L, "LOAN", "Cuota", "25000.00", "ARS", LocalDate.now().plusDays(10), 1, 12, false))));
+                new UpcomingPaymentView(1L, "LOAN", "Cuota", "25000.00", "ARS", LocalDate.now().plusDays(10), 1, 12, false))));
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of(
                 Map.of("type", "SAVINGS", "balance", "100000.00"),
                 Map.of("type", "CHECKING", "balance", "40000.00"))));

@@ -2,8 +2,8 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
-import com.financialapp.gateway.domain.model.dashboard.LoanView;
-import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
+import com.financialapp.gateway.domain.model.bff.LoanView;
+import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;

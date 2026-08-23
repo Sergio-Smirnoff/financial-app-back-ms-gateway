@@ -13,7 +13,7 @@ import com.financialapp.gateway.domain.model.composition.Section;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
-import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionsBffUseCase;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,7 +1,7 @@
 package com.financialapp.gateway.domain.gateway;
 
 import com.financialapp.gateway.domain.common.model.UserId;
-import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 
 import java.time.LocalDate;
 import java.util.List;

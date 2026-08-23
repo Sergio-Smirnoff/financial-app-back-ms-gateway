@@ -1,4 +1,4 @@
-package com.financialapp.gateway.domain.model.dashboard;
+package com.financialapp.gateway.domain.model.bff;
 
 public record LoanView(
         Long id,
