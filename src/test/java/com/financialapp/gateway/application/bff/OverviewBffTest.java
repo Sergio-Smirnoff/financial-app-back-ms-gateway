@@ -54,6 +54,9 @@ class OverviewBffTest {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", 1000)));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
@@ -71,6 +74,9 @@ class OverviewBffTest {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", 1000)));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
@@ -92,6 +98,9 @@ class OverviewBffTest {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
@@ -110,6 +119,9 @@ class OverviewBffTest {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
@@ -117,5 +129,30 @@ class OverviewBffTest {
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "ARS").join();
 
         assertThat(data.kpis().data().cash().secondary()).isNull();
+    }
+
+    @Test
+    void kpisCommitAndBreakdownComposeFromBanksAndPortfolio() {
+        when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", "500000")));
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                new com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView(1L, "LOAN", "Cuota", "25000.00", "ARS", LocalDate.now().plusDays(10), 1, 12, false))));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("type", "SAVINGS", "balance", "100000.00"),
+                Map.of("type", "CHECKING", "balance", "40000.00"))));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("usedBalance", "15000.00"))));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("outstandingAmount", "5000.00"))));
+        when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
+
+        OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        assertThat(data.kpis().data().committed().amount()).isEqualByComparingTo("25000.00");
+        assertThat(data.breakdown().data().investments().amount()).isEqualByComparingTo("500000");
+        assertThat(data.breakdown().data().savings().amount()).isEqualByComparingTo("100000.00");
+        assertThat(data.breakdown().data().cash().amount()).isEqualByComparingTo("40000.00");
+        assertThat(data.breakdown().data().debt().amount()).isEqualByComparingTo("20000.00");
     }
 }

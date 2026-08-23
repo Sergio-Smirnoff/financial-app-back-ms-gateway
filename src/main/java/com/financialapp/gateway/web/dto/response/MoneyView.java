@@ -1,6 +1,13 @@
 package com.financialapp.gateway.web.dto.response;
 
-public record MoneyView(String amount, String currency, MoneyView secondary) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
+public record MoneyView(
+        @Schema(requiredMode = REQUIRED) String amount,
+        @Schema(requiredMode = REQUIRED) String currency,
+        MoneyView secondary) {
     public static MoneyView of(String amount, String currency) {
         return new MoneyView(amount, currency, null);
     }

@@ -42,6 +42,9 @@ class ResilienceTest {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(slowFuture);
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(Map.of()));

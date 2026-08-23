@@ -63,12 +63,13 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
         CompletableFuture<List<Map<String, Object>>> holdingsFuture = investments.fetchHoldings(userId);
 
         CompletableFuture<Section<List<MarketQuote>>> marketStripSec = applyBudget(
-                Section.guard(
-                        investments.fetchMarketPanel()
-                                .thenApply(panel -> {
-                                    Object quotesObj = panel.get("quotes");
-                                    List<Map<String, Object>> list = quotesObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
-                                    return list.stream().map(q -> {
+                investments.fetchMarketPanel()
+                        .thenApply(panel -> {
+                            Object quotesObj = panel.get("quotes");
+                            List<Map<String, Object>> list = quotesObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
+                            return list.stream()
+                                    .filter(q -> !String.valueOf(q.getOrDefault("code", "")).isBlank())
+                                    .map(q -> {
                                         String code = String.valueOf(q.getOrDefault("code", ""));
                                         String label = String.valueOf(q.getOrDefault("label", ""));
                                         BigDecimal val = parseDecimal(q.get("value"));
@@ -78,8 +79,14 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                                         Instant obs = parseInstant(q.get("observedAt"));
                                         return new MarketQuote(code, label, val, var, unit, obs);
                                     }).toList();
-                                }),
-                        List.of(), clock),
+                        })
+                        .handle((quotes, ex) -> {
+                            ObservedAt stamp = ObservedAt.now(clock);
+                            // An offline market upstream must degrade the section, not report OK with placeholder rows.
+                            return ex == null && !quotes.isEmpty()
+                                    ? Section.ok(quotes, stamp)
+                                    : Section.unavailable(List.<MarketQuote>of(), stamp);
+                        }),
                 List.of());
 
         CompletableFuture<Section<InvestmentsKpis>> kpisSec = applyBudget(
