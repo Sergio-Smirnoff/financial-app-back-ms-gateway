@@ -39,7 +39,8 @@ class TransactionsBffTest {
         GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(finances, banks, investments, PageTimeoutBudget.fromMillis(3000));
 
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), eq(0), eq(20), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
+        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of(), "totalElements", 0)));
         when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchUncategorisedCount(any())).thenReturn(CompletableFuture.completedFuture(Map.of("count", 0)));

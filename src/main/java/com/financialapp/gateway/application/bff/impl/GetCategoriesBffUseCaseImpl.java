@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
@@ -56,15 +58,21 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                 investments.fetchFxRate(currencyView, today) : CompletableFuture.completedFuture(Optional.empty());
 
         CompletableFuture<List<Map<String, Object>>> budgetsFuture = finances.fetchBudgets(userId, period);
+        CompletableFuture<List<Map<String, Object>>> paceFuture = finances.fetchBudgetPace(userId, period);
 
         CompletableFuture<Section<CategoriesKpis>> kpisSec = applyBudget(
                 Section.guard(
-                        finances.fetchBudgetPace(userId, period)
-                                .thenCombine(fxRateFuture, (paceMap, fx) -> {
-                                    BigDecimal spent = parseDecimal(paceMap.get("totalSpent"));
-                                    BigDecimal avail = parseDecimal(paceMap.get("totalAvailable"));
-                                    int overCount = parseInt(paceMap.get("overBudgetCount"), 0);
-                                    BigDecimal pacePct = parseDecimal(paceMap.get("pacePct"));
+                        CompletableFuture.allOf(budgetsFuture, paceFuture, fxRateFuture)
+                                .thenApply(v -> {
+                                    Optional<FxRate> fx = fxRateFuture.join();
+                                    List<Map<String, Object>> paceList = paceFuture.join();
+                                    BigDecimal spent = paceList.stream().map(p -> parseDecimal(p.get("spent"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal avail = paceList.stream().map(p -> parseDecimal(p.get("remaining"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    int overCount = (int) paceList.stream().filter(p -> Boolean.TRUE.equals(p.get("overBudget"))).count();
+                                    BigDecimal capTotal = budgetsFuture.join().stream().map(b -> parseDecimal(b.get("amount"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal pacePct = capTotal.compareTo(BigDecimal.ZERO) > 0
+                                            ? spent.multiply(new BigDecimal("100")).divide(capTotal, 2, RoundingMode.HALF_EVEN)
+                                            : BigDecimal.ZERO;
 
                                     return new CategoriesKpis(
                                             BffMoneyConverter.convert(spent, Currency.ARS, currencyView, secondary, fx),
@@ -78,16 +86,24 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
 
         CompletableFuture<Section<List<BudgetRow>>> budgetsSec = applyBudget(
                 Section.guard(
-                        budgetsFuture.thenCombine(fxRateFuture, (list, fx) -> list.stream().map(b -> {
-                            Long catId = parseLong(b.get("categoryId"));
-                            String name = String.valueOf(b.getOrDefault("categoryName", b.getOrDefault("name", "")));
-                            BigDecimal cap = parseDecimal(b.get("capAmount"));
-                            BigDecimal spent = parseDecimal(b.get("spentAmount"));
-                            BigDecimal pct = parseDecimal(b.get("spentPct"));
-                            BigDecimal threshold = parseDecimal(b.get("alertThresholdPct"));
-                            Boolean over = Boolean.TRUE.equals(b.get("overBudget"));
-                            return new BudgetRow(catId, name, cap, BffMoneyConverter.convert(spent, Currency.ARS, currencyView, secondary, fx), pct, threshold, over);
-                        }).toList()),
+                        CompletableFuture.allOf(budgetsFuture, paceFuture, fxRateFuture)
+                                .thenApply(v -> {
+                                    Optional<FxRate> fx = fxRateFuture.join();
+                                    Map<Long, Map<String, Object>> paceByCategory = paceFuture.join().stream()
+                                            .filter(p -> parseLong(p.get("categoryId")) != null)
+                                            .collect(Collectors.toMap(p -> parseLong(p.get("categoryId")), p -> p, (a, b) -> a));
+                                    return budgetsFuture.join().stream().map(b -> {
+                                        Long catId = parseLong(b.get("categoryId"));
+                                        String name = String.valueOf(b.getOrDefault("categoryName", b.getOrDefault("name", "")));
+                                        BigDecimal cap = parseDecimal(b.get("amount"));
+                                        BigDecimal threshold = parseDecimal(b.get("alertThresholdPct"));
+                                        Map<String, Object> pace = paceByCategory.getOrDefault(catId, Map.of());
+                                        BigDecimal spent = parseDecimal(pace.get("spent"));
+                                        BigDecimal pct = parseDecimal(pace.get("pctUsed"));
+                                        Boolean over = Boolean.TRUE.equals(pace.get("overBudget"));
+                                        return new BudgetRow(catId, name, cap, BffMoneyConverter.convert(spent, Currency.ARS, currencyView, secondary, fx), pct, threshold, over);
+                                    }).toList();
+                                }),
                         List.of(), clock),
                 List.of());
 

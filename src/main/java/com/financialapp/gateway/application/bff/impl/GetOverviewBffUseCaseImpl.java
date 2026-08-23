@@ -14,6 +14,7 @@ import com.financialapp.gateway.domain.model.composition.Section;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
+import com.financialapp.gateway.domain.model.dashboard.CurrencySummary;
 import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetOverviewBffUseCase;
@@ -70,18 +71,27 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
         // Deduplicated futures
         CompletableFuture<Map<String, Object>> portfolioFuture = investments.fetchPortfolioSummary(userId);
         CompletableFuture<List<UpcomingPaymentView>> upcomingFuture = banks.fetchUpcomingPayments(userId, today, today.plusMonths(12));
+        CompletableFuture<List<Map<String, Object>>> accountsFuture = banks.fetchAccounts(userId);
+        CompletableFuture<List<Map<String, Object>>> cardsFuture = banks.fetchCards(userId);
+        CompletableFuture<List<Map<String, Object>>> loansFuture = banks.fetchLoans(userId);
+
+        CompletableFuture<List<CurrencySummary>> summaryFuture = finances.fetchSummary(userId, yearStart, today);
 
         CompletableFuture<Section<OverviewKpis>> kpisSec = applyBudget(
                 Section.guard(
-                        finances.fetchSummary(userId, yearStart, today)
-                                .thenCombine(fxRateFuture, (summaries, fx) -> {
+                        CompletableFuture.allOf(summaryFuture, upcomingFuture, fxRateFuture)
+                                .thenApply(v -> {
+                                    List<CurrencySummary> summaries = summaryFuture.join();
+                                    Optional<FxRate> fx = fxRateFuture.join();
                                     BigDecimal income = summaries.stream().map(s -> parseDecimal(s.totalIncome())).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal expense = summaries.stream().map(s -> parseDecimal(s.totalExpense())).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal balance = summaries.stream().map(s -> parseDecimal(s.balance())).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal committed = upcomingFuture.join().stream().map(u -> parseDecimal(u.amount())).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     MoneyFigure cashFig = BffMoneyConverter.convert(balance, Currency.ARS, currencyView, secondary, fx);
                                     MoneyFigure incomeFig = BffMoneyConverter.convert(income, Currency.ARS, currencyView, secondary, fx);
                                     MoneyFigure expenseFig = BffMoneyConverter.convert(expense, Currency.ARS, currencyView, secondary, fx);
-                                    return new OverviewKpis(cashFig, incomeFig, expenseFig, null);
+                                    MoneyFigure committedFig = BffMoneyConverter.convert(committed, Currency.ARS, currencyView, secondary, fx);
+                                    return new OverviewKpis(cashFig, incomeFig, expenseFig, committedFig);
                                 }),
                         OverviewKpis.empty(), clock),
                 OverviewKpis.empty());
@@ -99,11 +109,24 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
 
         CompletableFuture<Section<Breakdown>> breakdownSec = applyBudget(
                 Section.guard(
-                        portfolioFuture.thenCombine(fxRateFuture, (pf, fx) -> {
-                            BigDecimal inv = parseDecimal(pf.get("totalMarketValue"));
-                            MoneyFigure invFig = BffMoneyConverter.convert(inv, Currency.ARS, currencyView, secondary, fx);
-                            return new Breakdown(invFig, null, null, null);
-                        }),
+                        CompletableFuture.allOf(portfolioFuture, accountsFuture, cardsFuture, loansFuture, fxRateFuture)
+                                .thenApply(v -> {
+                                    Optional<FxRate> fx = fxRateFuture.join();
+                                    BigDecimal inv = parseDecimal(portfolioFuture.join().get("totalMarketValue"));
+                                    BigDecimal savings = accountsFuture.join().stream()
+                                            .filter(a -> "SAVINGS".equalsIgnoreCase(String.valueOf(a.get("type"))))
+                                            .map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal cash = accountsFuture.join().stream()
+                                            .filter(a -> !"SAVINGS".equalsIgnoreCase(String.valueOf(a.get("type"))))
+                                            .map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal cardDebt = cardsFuture.join().stream().map(c -> parseDecimal(c.get("usedBalance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal loanDebt = loansFuture.join().stream().map(l -> parseDecimal(l.get("outstandingAmount"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    return new Breakdown(
+                                            BffMoneyConverter.convert(inv, Currency.ARS, currencyView, secondary, fx),
+                                            BffMoneyConverter.convert(cash, Currency.ARS, currencyView, secondary, fx),
+                                            BffMoneyConverter.convert(cardDebt.add(loanDebt), Currency.ARS, currencyView, secondary, fx),
+                                            BffMoneyConverter.convert(savings, Currency.ARS, currencyView, secondary, fx));
+                                }),
                         Breakdown.empty(), clock),
                 Breakdown.empty());
 
@@ -178,15 +201,15 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
         Long id = parseLong(r.get("id"));
         LocalDate date = parseDate(r.get("date"));
         String desc = String.valueOf(r.getOrDefault("description", ""));
-        String cbu = String.valueOf(r.getOrDefault("accountCbu", ""));
+        String cbu = String.valueOf(r.getOrDefault("fromCbu", ""));
         String alias = String.valueOf(r.getOrDefault("accountAlias", ""));
         Long catId = parseLong(r.get("categoryId"));
         String catName = String.valueOf(r.getOrDefault("categoryName", ""));
-        String method = String.valueOf(r.getOrDefault("method", ""));
+        String method = String.valueOf(r.getOrDefault("paymentMethod", ""));
         String note = String.valueOf(r.getOrDefault("note", ""));
         BigDecimal amount = parseDecimal(r.get("amount"));
-        String dirStr = String.valueOf(r.getOrDefault("direction", "OUT"));
-        TransactionDirection dir = "IN".equalsIgnoreCase(dirStr) ? TransactionDirection.IN : TransactionDirection.OUT;
+        String kindStr = String.valueOf(r.getOrDefault("kind", "EXPENSE"));
+        TransactionDirection dir = "INCOME".equalsIgnoreCase(kindStr) ? TransactionDirection.IN : TransactionDirection.OUT;
 
         String currStr = String.valueOf(r.getOrDefault("currency", "ARS"));
         Currency sourceCurrency = Currency.of(currStr);

@@ -40,7 +40,8 @@ class InvestmentsBffTest {
 
     @Test
     void execute_returnsOkSectionsForInvestments() {
-        when(investments.fetchMarketPanel()).thenReturn(CompletableFuture.completedFuture(Map.of("merval", 1200)));
+        when(investments.fetchMarketPanel()).thenReturn(CompletableFuture.completedFuture(
+                Map.of("quotes", List.of(Map.of("code", "MERVAL", "label", "Merval", "value", "1200", "variation", "1.5", "unit", "PERCENT")))));
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of("totalMarketValue", 5000)));
         when(investments.fetchPortfolioEvolution(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(investments.fetchHoldings(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
@@ -51,6 +52,21 @@ class InvestmentsBffTest {
         assertThat(data.marketStrip().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.kpis().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.positions().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void marketStripDegradesWhenTheMarketUpstreamHasNoUsableQuotes() {
+        when(investments.fetchMarketPanel()).thenReturn(CompletableFuture.completedFuture(
+                Map.of("quotes", List.of(Map.of("code", "", "label", "", "value", "0", "variation", "0", "unit", "PERCENT")))));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(investments.fetchPortfolioEvolution(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(investments.fetchHoldings(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(notifications.fetchLatestByCategory(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        InvestmentsBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        assertThat(data.marketStrip().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(data.marketStrip().data()).isEmpty();
     }
 
     @Test

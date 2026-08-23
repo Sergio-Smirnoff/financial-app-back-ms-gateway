@@ -112,7 +112,7 @@ public class InvestmentsGatewayImpl implements InvestmentsGateway {
     @Override
     public CompletableFuture<List<Map<String, Object>>> fetchHoldings(UserId userId) {
         return webClient.get()
-                .uri(investmentsUrl + "/api/v1/investments/holdings")
+                .uri(investmentsUrl + "/api/v1/investments/portfolio/holdings")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(LIST_MAP_TYPE)

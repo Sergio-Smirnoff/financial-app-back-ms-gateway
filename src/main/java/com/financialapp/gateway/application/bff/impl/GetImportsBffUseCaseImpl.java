@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,12 +59,12 @@ public class GetImportsBffUseCaseImpl implements GetImportsBffUseCase {
 
                             if (activeOpt.isEmpty()) return null;
                             Map<String, Object> a = activeOpt.get();
-                            Long runId = parseLong(a.get("runId"));
+                            Long runId = parseLong(a.get("id"));
                             String status = String.valueOf(a.getOrDefault("status", "PROCESSING"));
-                            String fileName = String.valueOf(a.getOrDefault("fileName", ""));
-                            Instant startedAt = parseInstant(a.get("importedAt"));
-                            Integer processed = parseInt(a.get("inserted"), 0);
-                            Integer total = parseInt(a.get("total"), 0);
+                            String fileName = runLabel(a);
+                            Instant startedAt = parseInstant(a.get("createdAt"));
+                            Integer processed = parseInt(a.get("importedCount"), 0);
+                            Integer total = parseInt(a.get("importedCount"), 0) + parseInt(a.get("skippedCount"), 0);
                             return new ActiveRun(runId, status, fileName, startedAt, processed, total);
                         }),
                         null, clock),
@@ -71,13 +73,13 @@ public class GetImportsBffUseCaseImpl implements GetImportsBffUseCase {
         CompletableFuture<Section<List<ImportRunRow>>> historySec = applyBudget(
                 Section.guard(
                         historyFuture.thenApply(list -> list.stream().map(h -> {
-                            Long runId = parseLong(h.get("runId"));
-                            String fileName = String.valueOf(h.getOrDefault("fileName", ""));
-                            Instant importedAt = parseInstant(h.get("importedAt"));
+                            Long runId = parseLong(h.get("id"));
+                            String fileName = runLabel(h);
+                            Instant importedAt = parseInstant(h.get("createdAt"));
                             String accountCbu = String.valueOf(h.getOrDefault("accountCbu", ""));
-                            Integer inserted = parseInt(h.get("inserted"), 0);
-                            Integer duplicates = parseInt(h.get("duplicates"), 0);
-                            Integer failed = parseInt(h.get("failed"), 0);
+                            Integer inserted = parseInt(h.get("importedCount"), 0);
+                            Integer duplicates = parseInt(h.get("skippedCount"), 0);
+                            Integer failed = 0;
                             String status = String.valueOf(h.getOrDefault("status", "COMPLETED"));
                             return new ImportRunRow(runId, fileName, importedAt, accountCbu, inserted, duplicates, failed, status);
                         }).toList()),
@@ -87,12 +89,13 @@ public class GetImportsBffUseCaseImpl implements GetImportsBffUseCase {
         CompletableFuture<Section<List<ReconciliationRow>>> reconciliationSec = applyBudget(
                 Section.guard(
                         historyFuture.thenApply(list -> list.stream().map(h -> {
-                            Long runId = parseLong(h.get("runId"));
-                            Object expVal = h.get("expectedBalance");
-                            Object compVal = h.get("computedBalance");
+                            Long runId = parseLong(h.get("id"));
+                            Map<String, Object> rec = h.get("reconciliation") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+                            Object expVal = amountOf(rec.get("statementBalance"));
+                            Object compVal = amountOf(rec.get("calculatedBalance"));
                             MoneyFigure expMoney = expVal != null ? MoneyFigure.of(parseDecimal(expVal), Currency.ARS) : null;
                             MoneyFigure compMoney = compVal != null ? MoneyFigure.of(parseDecimal(compVal), Currency.ARS) : null;
-                            Boolean matches = (expVal == null || compVal == null) ? null : expMoney.amount().compareTo(compMoney.amount()) == 0;
+                            Boolean matches = Boolean.TRUE.equals(rec.get("matches"));
                             return new ReconciliationRow(runId, expMoney, compMoney, matches);
                         }).toList()),
                         List.of(), clock),
@@ -127,6 +130,21 @@ public class GetImportsBffUseCaseImpl implements GetImportsBffUseCase {
 
     private static Instant parseInstant(Object val) {
         if (val == null) return Instant.EPOCH;
-        try { return Instant.parse(val.toString()); } catch (Exception e) { return Instant.EPOCH; }
+        try { return Instant.parse(val.toString()); } catch (Exception e) {
+            try { return LocalDateTime.parse(val.toString()).toInstant(ZoneOffset.UTC); } catch (Exception e2) { return Instant.EPOCH; }
+        }
+    }
+
+    // ms-upload keeps no original filename; label a run by its source and period.
+    private static String runLabel(Map<String, Object> h) {
+        String from = String.valueOf(h.getOrDefault("periodFrom", ""));
+        String to = String.valueOf(h.getOrDefault("periodTo", ""));
+        String cbu = String.valueOf(h.getOrDefault("accountCbu", ""));
+        String tail = cbu.length() >= 4 ? cbu.substring(cbu.length() - 4) : cbu;
+        return ("Extracto …" + tail + " " + from + " – " + to).trim();
+    }
+
+    private static Object amountOf(Object money) {
+        return money instanceof Map<?, ?> m ? ((Map<String, Object>) m).get("amount") : null;
     }
 }

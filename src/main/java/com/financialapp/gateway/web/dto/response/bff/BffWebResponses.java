@@ -1,8 +1,11 @@
 package com.financialapp.gateway.web.dto.response.bff;
 
 import com.financialapp.gateway.web.dto.response.MoneyView;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
+
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,13 +26,23 @@ public class BffWebResponses {
             String direction
     ) {}
 
-    public record OverviewKpisResponse(MoneyView cash, MoneyView income, MoneyView expense, MoneyView committed) {}
+    public record OverviewKpisResponse(
+            @Schema(requiredMode = REQUIRED) MoneyView cash,
+            @Schema(requiredMode = REQUIRED) MoneyView income,
+            @Schema(requiredMode = REQUIRED) MoneyView expense,
+            @Schema(requiredMode = REQUIRED) MoneyView committed
+    ) {}
 
     public record NetWorthPointResponse(LocalDate date, MoneyView value) {}
     public record NetWorthDeltaResponse(MoneyView amount, BigDecimal pct) {}
     public record NetWorthResponse(List<NetWorthPointResponse> series, NetWorthDeltaResponse delta, boolean allTimeHigh) {}
 
-    public record BreakdownResponse(MoneyView investments, MoneyView cash, MoneyView debt, MoneyView savings) {}
+    public record BreakdownResponse(
+            @Schema(requiredMode = REQUIRED) MoneyView investments,
+            @Schema(requiredMode = REQUIRED) MoneyView cash,
+            @Schema(requiredMode = REQUIRED) MoneyView debt,
+            @Schema(requiredMode = REQUIRED) MoneyView savings
+    ) {}
 
     public record FlowPointResponse(String month, MoneyView income, MoneyView expense) {}
     public record CommittedPointResponse(String month, MoneyView amount) {}

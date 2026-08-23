@@ -13,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,8 +85,9 @@ public class FinancesGatewayImpl implements FinancesGateway {
 
     @Override
     public CompletableFuture<List<Map<String, Object>>> fetchBudgets(UserId userId, String period) {
+        YearMonth ym = YearMonth.parse(period);
         return webClient.get()
-                .uri(financesUrl + "/api/v1/finances/budgets?period={period}", period)
+                .uri(financesUrl + "/api/v1/finances/budgets?year={year}&month={month}", ym.getYear(), ym.getMonthValue())
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(LIST_MAP_TYPE)
@@ -96,14 +98,15 @@ public class FinancesGatewayImpl implements FinancesGateway {
     }
 
     @Override
-    public CompletableFuture<Map<String, Object>> fetchBudgetPace(UserId userId, String period) {
+    public CompletableFuture<List<Map<String, Object>>> fetchBudgetPace(UserId userId, String period) {
+        YearMonth ym = YearMonth.parse(period);
         return webClient.get()
-                .uri(financesUrl + "/api/v1/finances/budgets/pace?period={period}", period)
+                .uri(financesUrl + "/api/v1/finances/budgets/pace?year={year}&month={month}", ym.getYear(), ym.getMonthValue())
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
-                .bodyToMono(MAP_TYPE)
-                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
-                .onErrorReturn(Map.of())
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
