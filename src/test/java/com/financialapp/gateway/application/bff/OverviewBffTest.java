@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -144,7 +145,10 @@ class OverviewBffTest {
                 Map.of("type", "SAVINGS", "balance", "100000.00"),
                 Map.of("type", "CHECKING", "balance", "40000.00"))));
         when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("usedBalance", "15000.00"))));
-        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("outstandingAmount", "5000.00"))));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("id", 1, "name", "Auto"))));
+        when(banks.fetchLoanInstallments(any(), eq(1L))).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("id", 11, "installmentNumber", 1, "amount", "5000.00", "dueDate", "2026-09-10", "paid", false),
+                Map.of("id", 10, "installmentNumber", 0, "amount", "7000.00", "dueDate", "2026-08-10", "paid", true))));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));

@@ -1,5 +1,6 @@
 package com.financialapp.gateway.application.bff.impl;
 
+import com.financialapp.gateway.application.bff.impl.LoanScheduleSupport.LoanWithSchedule;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
@@ -74,6 +75,8 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
         CompletableFuture<List<Map<String, Object>>> accountsFuture = banks.fetchAccounts(userId);
         CompletableFuture<List<Map<String, Object>>> cardsFuture = banks.fetchCards(userId);
         CompletableFuture<List<Map<String, Object>>> loansFuture = banks.fetchLoans(userId);
+        CompletableFuture<List<LoanWithSchedule>> enrichedLoansFuture = loansFuture.thenCompose(
+                loans -> LoanScheduleSupport.enrich(loans, loanId -> banks.fetchLoanInstallments(userId, loanId)));
 
         CompletableFuture<List<CurrencySummary>> summaryFuture = finances.fetchSummary(userId, yearStart, today);
 
@@ -109,7 +112,7 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
 
         CompletableFuture<Section<Breakdown>> breakdownSec = applyBudget(
                 Section.guard(
-                        CompletableFuture.allOf(portfolioFuture, accountsFuture, cardsFuture, loansFuture, fxRateFuture)
+                        CompletableFuture.allOf(portfolioFuture, accountsFuture, cardsFuture, enrichedLoansFuture, fxRateFuture)
                                 .thenApply(v -> {
                                     Optional<FxRate> fx = fxRateFuture.join();
                                     BigDecimal inv = parseDecimal(portfolioFuture.join().get("totalMarketValue"));
@@ -120,7 +123,9 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
                                             .filter(a -> !"SAVINGS".equalsIgnoreCase(String.valueOf(a.get("type"))))
                                             .map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal cardDebt = cardsFuture.join().stream().map(c -> parseDecimal(c.get("usedBalance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal loanDebt = loansFuture.join().stream().map(l -> parseDecimal(l.get("outstandingAmount"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal loanDebt = enrichedLoansFuture.join().stream()
+                                            .map(e -> LoanScheduleSupport.outstanding(e.schedule()))
+                                            .reduce(BigDecimal.ZERO, BigDecimal::add);
                                     return new Breakdown(
                                             BffMoneyConverter.convert(inv, Currency.ARS, currencyView, secondary, fx),
                                             BffMoneyConverter.convert(cash, Currency.ARS, currencyView, secondary, fx),
