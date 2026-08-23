@@ -5,6 +5,7 @@ import com.financialapp.gateway.domain.model.admission.RateLimitPolicy;
 import com.financialapp.gateway.domain.model.admission.TokenBucket;
 import com.financialapp.gateway.web.error.ErrorResponseRenderer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
@@ -34,6 +35,7 @@ public class RateLimitFilter implements WebFilter {
     private final ConcurrentHashMap<String, TokenBucket> buckets = new ConcurrentHashMap<>();
     private final AtomicLong lastSweepMillis = new AtomicLong(0);
 
+    @Autowired
     public RateLimitFilter(@Value("${rate-limit.requests-per-minute:600}") int requestsPerMinute,
                             ErrorResponseRenderer errorRenderer) {
         this(requestsPerMinute, errorRenderer, System::currentTimeMillis);

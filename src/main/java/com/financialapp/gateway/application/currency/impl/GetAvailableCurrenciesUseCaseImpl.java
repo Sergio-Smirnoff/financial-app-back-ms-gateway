@@ -10,6 +10,7 @@ import com.financialapp.gateway.domain.model.currency.UserDisplayPreferences;
 import com.financialapp.gateway.domain.service.AvailableCurrencies;
 import com.financialapp.gateway.domain.service.AvailableCurrencies.AvailableCurrenciesResult;
 import com.financialapp.gateway.domain.usecase.currency.GetAvailableCurrencies;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -25,6 +26,7 @@ public class GetAvailableCurrenciesUseCaseImpl implements GetAvailableCurrencies
     private final AvailableCurrencies service = new AvailableCurrencies();
     private final Clock clock;
 
+    @Autowired
     public GetAvailableCurrenciesUseCaseImpl(BanksGateway banks, InvestmentsGateway investments, UsersGateway users) {
         this(banks, investments, users, Clock.systemUTC());
     }

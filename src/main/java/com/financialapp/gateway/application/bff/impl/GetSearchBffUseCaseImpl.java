@@ -9,6 +9,7 @@ import com.financialapp.gateway.domain.model.composition.ObservedAt;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.Section;
 import com.financialapp.gateway.domain.usecase.bff.GetSearchBffUseCase;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -25,6 +26,7 @@ public class GetSearchBffUseCaseImpl implements GetSearchBffUseCase {
     private final PageTimeoutBudget budget;
     private final Clock clock;
 
+    @Autowired
     public GetSearchBffUseCaseImpl(
             FinancesGateway finances, InvestmentsGateway investments, PageTimeoutBudget budget) {
         this(finances, investments, budget, Clock.systemUTC());
