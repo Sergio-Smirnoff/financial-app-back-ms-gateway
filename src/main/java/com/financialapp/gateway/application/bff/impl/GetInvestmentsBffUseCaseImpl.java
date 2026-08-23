@@ -128,11 +128,11 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                             String ticker = String.valueOf(h.getOrDefault("ticker", ""));
                             String name = String.valueOf(h.getOrDefault("name", ""));
                             BigDecimal qty = parseDecimal(h.get("quantity"));
-                            BigDecimal avgCost = parseDecimal(h.get("avgCost"));
-                            BigDecimal price = parseDecimal(h.get("price"));
-                            BigDecimal mv = parseDecimal(h.get("marketValue"));
-                            BigDecimal pnl = parseDecimal(h.get("pnl"));
-                            BigDecimal pnlPct = parseDecimal(h.get("pnlPct"));
+                            BigDecimal avgCost = parseDecimal(h.get("avgPurchasePrice"));
+                            BigDecimal price = parseDecimal(h.get("currentPrice"));
+                            BigDecimal mv = parseDecimal(h.get("currentValue"));
+                            BigDecimal pnl = parseDecimal(h.get("plAmount"));
+                            BigDecimal pnlPct = parseDecimal(h.get("plPercent"));
                             String bankNumber = String.valueOf(h.getOrDefault("bankNumber", ""));
                             Currency curr = Currency.of(String.valueOf(h.getOrDefault("currency", "ARS")));
 
@@ -172,8 +172,8 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                                     String ticker = String.valueOf(h.getOrDefault("ticker", ""));
                                     BigDecimal qty = parseDecimal(h.get("quantity"));
                                     OperationKind kind = qty.compareTo(BigDecimal.ZERO) >= 0 ? OperationKind.BUY : OperationKind.SELL;
-                                    LocalDate date = parseDate(h.get("purchaseDate"));
-                                    BigDecimal amt = parseDecimal(h.get("marketValue"));
+                                    LocalDate date = parseDate(h.get("createdAt"));
+                                    BigDecimal amt = parseDecimal(h.get("currentValue"));
                                     Currency curr = Currency.of(String.valueOf(h.getOrDefault("currency", "ARS")));
                                     return new OperationRow(holdingId, ticker, kind, date, qty.abs(), BffMoneyConverter.convert(amt, curr, currencyView, secondary, fx));
                                 })
