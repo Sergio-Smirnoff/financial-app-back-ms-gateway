@@ -13,6 +13,7 @@ import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetCategoriesBffUseCase;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -32,6 +33,7 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
     private final PageTimeoutBudget budget;
     private final Clock clock;
 
+    @Autowired
     public GetCategoriesBffUseCaseImpl(
             FinancesGateway finances, InvestmentsGateway investments, PageTimeoutBudget budget) {
         this(finances, investments, budget, Clock.systemUTC());

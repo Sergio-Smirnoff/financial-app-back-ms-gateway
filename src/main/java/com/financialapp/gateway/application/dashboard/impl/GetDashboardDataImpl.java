@@ -11,6 +11,7 @@ import com.financialapp.gateway.domain.model.dashboard.DashboardData;
 import com.financialapp.gateway.domain.model.dashboard.LoanView;
 import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
 import com.financialapp.gateway.domain.usecase.dashboard.GetDashboardData;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -27,6 +28,7 @@ public class GetDashboardDataImpl implements GetDashboardData {
     private final PageTimeoutBudget budget;
     private final Clock clock;
 
+    @Autowired
     public GetDashboardDataImpl(FinancesGateway finances, BanksGateway banks, PageTimeoutBudget budget) {
         this(finances, banks, budget, Clock.systemUTC());
     }

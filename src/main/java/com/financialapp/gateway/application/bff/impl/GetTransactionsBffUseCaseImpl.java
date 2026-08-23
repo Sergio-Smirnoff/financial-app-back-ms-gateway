@@ -15,6 +15,7 @@ import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionsBffUseCase;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -35,6 +36,7 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
     private final PageTimeoutBudget budget;
     private final Clock clock;
 
+    @Autowired
     public GetTransactionsBffUseCaseImpl(
             FinancesGateway finances, BanksGateway banks,
             InvestmentsGateway investments, PageTimeoutBudget budget) {
@@ -131,15 +133,15 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
         Long id = parseLong(r.get("id"));
         LocalDate date = parseDate(r.get("date"));
         String desc = String.valueOf(r.getOrDefault("description", ""));
-        String cbu = String.valueOf(r.getOrDefault("accountCbu", ""));
+        String cbu = String.valueOf(r.getOrDefault("fromCbu", ""));
         String alias = String.valueOf(r.getOrDefault("accountAlias", ""));
         Long catId = parseLong(r.get("categoryId"));
         String catName = String.valueOf(r.getOrDefault("categoryName", ""));
-        String method = String.valueOf(r.getOrDefault("method", ""));
+        String method = String.valueOf(r.getOrDefault("paymentMethod", ""));
         String note = String.valueOf(r.getOrDefault("note", ""));
         BigDecimal amount = parseDecimal(r.get("amount"));
-        String dirStr = String.valueOf(r.getOrDefault("direction", "OUT"));
-        TransactionDirection dir = "IN".equalsIgnoreCase(dirStr) ? TransactionDirection.IN : TransactionDirection.OUT;
+        String kindStr = String.valueOf(r.getOrDefault("kind", "EXPENSE"));
+        TransactionDirection dir = "INCOME".equalsIgnoreCase(kindStr) ? TransactionDirection.IN : TransactionDirection.OUT;
 
         String currStr = String.valueOf(r.getOrDefault("currency", "ARS"));
         Currency sourceCurrency = Currency.of(currStr);

@@ -12,6 +12,7 @@ import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import com.financialapp.gateway.infrastructure.gateway.dto.FxRateResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.HoldingResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
@@ -43,6 +44,7 @@ public class InvestmentsGatewayImpl implements InvestmentsGateway {
     private final TtlCache<String, List<FxRate>> fxCache;
     private final TtlCache<String, Map<String, Object>> marketCache;
 
+    @Autowired
     public InvestmentsGatewayImpl(
             WebClient internalWebClient,
             ServicesProperties services,

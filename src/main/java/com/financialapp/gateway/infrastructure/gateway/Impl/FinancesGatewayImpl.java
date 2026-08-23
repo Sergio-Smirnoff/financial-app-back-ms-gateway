@@ -10,10 +10,12 @@ import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -52,12 +54,12 @@ public class FinancesGatewayImpl implements FinancesGateway {
     public CompletableFuture<Map<String, Object>> fetchTransactions(
             UserId userId, int page, int size, List<String> categories, List<String> accounts, LocalDate from, LocalDate to) {
         return webClient.get()
-                .uri(builder -> builder.path(financesUrl + "/api/v1/finances/transactions")
-                        .queryParam("page", page)
+                .uri(UriComponentsBuilder.fromUriString(financesUrl + "/api/v1/finances/transactions")
                         .queryParam("size", size)
-                        .queryParam("from", from)
-                        .queryParam("to", to)
-                        .build())
+                        .queryParamIfPresent("from", Optional.ofNullable(from))
+                        .queryParamIfPresent("to", Optional.ofNullable(to))
+                        .build()
+                        .toUri())
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(MAP_TYPE)

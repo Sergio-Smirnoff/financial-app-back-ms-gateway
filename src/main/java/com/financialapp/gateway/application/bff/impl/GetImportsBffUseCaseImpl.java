@@ -10,6 +10,7 @@ import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.Section;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.usecase.bff.GetImportsBffUseCase;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ public class GetImportsBffUseCaseImpl implements GetImportsBffUseCase {
     private final PageTimeoutBudget budget;
     private final Clock clock;
 
+    @Autowired
     public GetImportsBffUseCaseImpl(UploadGateway upload, PageTimeoutBudget budget) {
         this(upload, budget, Clock.systemUTC());
     }

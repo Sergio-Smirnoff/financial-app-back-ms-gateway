@@ -16,6 +16,7 @@ import com.financialapp.gateway.domain.model.currency.FxRate;
 import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetBanksBffUseCase;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ public class GetBanksBffUseCaseImpl implements GetBanksBffUseCase {
     private final PageTimeoutBudget budget;
     private final Clock clock;
 
+    @Autowired
     public GetBanksBffUseCaseImpl(
             BanksGateway banks, InvestmentsGateway investments,
             UploadGateway upload, PageTimeoutBudget budget) {
