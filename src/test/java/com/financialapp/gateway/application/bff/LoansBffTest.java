@@ -1,9 +1,11 @@
 package com.financialapp.gateway.application.bff;
 
+import com.financialapp.gateway.application.bff.impl.GetLoanScheduleBffUseCaseImpl;
 import com.financialapp.gateway.application.bff.impl.GetLoansBffUseCaseImpl;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
+import com.financialapp.gateway.domain.model.bff.LoanScheduleBffData;
 import com.financialapp.gateway.domain.model.bff.LoansBffData;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
@@ -32,6 +34,7 @@ class LoansBffTest {
     @Mock private InvestmentsGateway investments;
 
     private GetLoansBffUseCaseImpl useCase;
+    private GetLoanScheduleBffUseCaseImpl scheduleUseCase;
 
     private static final Map<String, Object> LOAN = Map.of(
             "id", 1, "bankNumber", "017", "name", "Auto", "principal", "18000.00",
@@ -46,6 +49,7 @@ class LoansBffTest {
     @BeforeEach
     void setUp() {
         useCase = new GetLoansBffUseCaseImpl(banks, investments, PageTimeoutBudget.fromMillis(3000));
+        scheduleUseCase = new GetLoanScheduleBffUseCaseImpl(banks, investments, PageTimeoutBudget.fromMillis(3000));
     }
 
     @Test
@@ -81,5 +85,27 @@ class LoansBffTest {
         assertThat(data.loans().status()).isEqualTo(SectionStatus.UNAVAILABLE);
         assertThat(data.kpis().status()).isEqualTo(SectionStatus.UNAVAILABLE);
         assertThat(data.payFromAccounts().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void schedule_maps_installments_in_order_with_money_figures() {
+        when(banks.fetchLoanInstallments(any(), eq(1L))).thenReturn(CompletableFuture.completedFuture(SCHEDULE));
+
+        LoanScheduleBffData data = scheduleUseCase.execute(new UserId(1L), 1L, CurrencyView.ARS, "none").join();
+
+        assertThat(data.installments().status()).isEqualTo(SectionStatus.OK);
+        assertThat(data.installments().data()).hasSize(3);
+        assertThat(data.installments().data().getFirst().number()).isEqualTo(1);
+        assertThat(data.installments().data().get(1).paid()).isFalse();
+    }
+
+    @Test
+    void schedule_degrades_when_installments_fetch_fails() {
+        when(banks.fetchLoanInstallments(any(), eq(9L))).thenReturn(CompletableFuture.failedFuture(new RuntimeException("down")));
+
+        LoanScheduleBffData data = scheduleUseCase.execute(new UserId(1L), 9L, CurrencyView.ARS, "none").join();
+
+        assertThat(data.installments().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(data.installments().data()).isEmpty();
     }
 }
