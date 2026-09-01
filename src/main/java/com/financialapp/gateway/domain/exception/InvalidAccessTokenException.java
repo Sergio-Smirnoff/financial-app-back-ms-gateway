@@ -1,7 +1,9 @@
 package com.financialapp.gateway.domain.exception;
 
-public class InvalidAccessTokenException extends RuntimeException {
+import com.financialapp.commons.core.error.DomainException;
+
+public class InvalidAccessTokenException extends DomainException {
     public InvalidAccessTokenException(String message) {
-        super(message);
+        super(DomainErrorCode.UNAUTHORIZED, message);
     }
 }
