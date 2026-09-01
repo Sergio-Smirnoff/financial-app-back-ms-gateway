@@ -2,7 +2,7 @@
 
 API Gateway — single entry point for all `/api/v1/**` traffic. Runs on **port 8080**.
 
-Every request from the browser or external client passes through this service before reaching any downstream microservice. It enforces authentication, rate-limits requests, applies CORS policy, normalises error shapes, and provides a BFF aggregation endpoint so the frontend dashboard loads in a single round-trip.
+Every request from the browser or external client passes through this service before reaching any downstream microservice. It enforces authentication, rate-limits requests, applies CORS policy, normalises error shapes, and provides BFF composition endpoints for all pages (`/api/v1/bff/**`, `/api/v1/dashboard/data`).
 
 ## Tech Stack
 
@@ -27,29 +27,84 @@ src/main/java/com/financialapp/gateway/
 │   │   ├── DomainErrorCode.java
 │   │   └── InvalidAccessTokenException.java
 │   ├── gateway/
-│   │   ├── BanksGateway.java         # port — loans + upcoming payments
-│   │   ├── FinancesGateway.java      # port — transaction summaries
+│   │   ├── BanksGateway.java         # port — accounts, cards, loans, payments, fees
+│   │   ├── FinancesGateway.java      # port — transactions, budgets, spend by category
+│   │   ├── InvestmentsGateway.java   # port — portfolio, holdings, evolution, market panel, fx rates, fees
+│   │   ├── NotificationsGateway.java # port — unread count, latest, notification preferences
+│   │   ├── UploadGateway.java        # port — import history, run details
+│   │   ├── UsersGateway.java         # port — profile, sessions, preferences
 │   │   └── TokenVerificationGateway.java
 │   ├── model/
 │   │   ├── admission/
 │   │   │   ├── RateLimitPolicy.java
 │   │   │   └── TokenBucket.java
+│   │   ├── bff/                      # domain models for BFF pages
+│   │   │   ├── OverviewBffData.java
+│   │   │   ├── BanksBffData.java
+│   │   │   ├── TransactionsBffData.java
+│   │   │   ├── TransactionDetailBffData.java
+│   │   │   ├── CategoriesBffData.java
+│   │   │   ├── InvestmentsBffData.java
+│   │   │   ├── ImportsBffData.java
+│   │   │   ├── SettingsBffData.java
+│   │   │   └── SearchBffData.java
 │   │   ├── composition/
-│   │   │   ├── Section.java          # partial-degradation wrapper
+│   │   │   ├── ObservedAt.java       # freshness timestamp VO
+│   │   │   ├── PageTimeoutBudget.java# per-page outer timeout budget VO
+│   │   │   ├── Section.java          # partial-degradation wrapper with ObservedAt
 │   │   │   └── SectionStatus.java    # OK | UNAVAILABLE
+│   │   ├── currency/
+│   │   │   ├── Currency.java
+│   │   │   ├── CurrencyView.java     # ARS | USD_MEP | USD_CCL | USD_OFICIAL
+│   │   │   ├── DisplayMoney.java
+│   │   │   ├── FxRate.java
+│   │   │   ├── FxRateMode.java
+│   │   │   ├── ManualCurrencyRate.java
+│   │   │   ├── Money.java
+│   │   │   └── UserDisplayPreferences.java
 │   │   └── dashboard/
 │   │       ├── CurrencySummary.java
 │   │       ├── DashboardData.java
 │   │       ├── LoanView.java
 │   │       └── UpcomingPaymentView.java
-│   └── usecase/dashboard/
-│       └── GetDashboardData.java
+│   ├── service/
+│   │   ├── AvailableCurrencies.java  # currency selector resolution service
+│   │   └── MoneyConversion.java      # 3-case currency conversion service
+│   └── usecase/
+│       ├── bff/                      # BFF use case interfaces
+│       │   ├── GetOverviewBffUseCase.java
+│       │   ├── GetBanksBffUseCase.java
+│       │   ├── GetTransactionsBffUseCase.java
+│       │   ├── GetTransactionDetailBffUseCase.java
+│       │   ├── GetCategoriesBffUseCase.java
+│       │   ├── GetInvestmentsBffUseCase.java
+│       │   ├── GetImportsBffUseCase.java
+│       │   ├── GetSettingsBffUseCase.java
+│       │   └── GetSearchBffUseCase.java
+│       ├── currency/
+│       │   └── GetAvailableCurrencies.java
+│       └── dashboard/
+│           └── GetDashboardData.java
 │
 ├── application/
+│   ├── bff/impl/                     # BFF orchestrators with Section.guard & PageTimeoutBudget
+│   │   ├── GetOverviewBffUseCaseImpl.java
+│   │   ├── GetBanksBffUseCaseImpl.java
+│   │   ├── GetTransactionsBffUseCaseImpl.java
+│   │   ├── GetTransactionDetailBffUseCaseImpl.java
+│   │   ├── GetCategoriesBffUseCaseImpl.java
+│   │   ├── GetInvestmentsBffUseCaseImpl.java
+│   │   ├── GetImportsBffUseCaseImpl.java
+│   │   ├── GetSettingsBffUseCaseImpl.java
+│   │   └── GetSearchBffUseCaseImpl.java
+│   ├── currency/impl/
+│   │   └── GetAvailableCurrenciesUseCaseImpl.java
 │   └── dashboard/impl/
-│       └── GetDashboardDataImpl.java # concurrent fan-out, Section.guard
+│       └── GetDashboardDataImpl.java
 │
 ├── infrastructure/
+│   ├── cache/
+│   │   └── TtlCache.java             # 30s single-flight TTL cache
 │   ├── config/
 │   │   ├── CorsConfig.java
 │   │   ├── JwtProperties.java
@@ -60,30 +115,61 @@ src/main/java/com/financialapp/gateway/
 │       ├── client/
 │       │   └── WebClientConfig.java
 │       ├── dto/
+│       │   ├── AccountResponse.java
 │       │   ├── FinanceCurrencyTotals.java
+│       │   ├── FxRateResponse.java
 │       │   ├── GatewayApiResponse.java
+│       │   ├── HoldingResponse.java
 │       │   ├── LoanResponse.java
-│       │   └── UpcomingPaymentResponse.java
+│       │   ├── ManualCurrencyRateResponse.java
+│       │   ├── UpcomingPaymentResponse.java
+│       │   └── UserPreferencesResponse.java
 │       └── Impl/
 │           ├── BanksGatewayImpl.java
 │           ├── FinancesGatewayImpl.java
-│           └── JwtTokenVerificationGateway.java
+│           ├── InvestmentsGatewayImpl.java
+│           ├── JwtTokenVerificationGateway.java
+│           ├── NotificationsGatewayImpl.java
+│           ├── UploadGatewayImpl.java
+│           └── UsersGatewayImpl.java
 │
 └── web/
     ├── controller/
+    │   ├── bff/                      # Local BFF page controllers
+    │   │   ├── OverviewBffController.java
+    │   │   ├── BanksBffController.java
+    │   │   ├── TransactionsBffController.java
+    │   │   ├── CategoriesBffController.java
+    │   │   ├── InvestmentsBffController.java
+    │   │   ├── ImportsBffController.java
+    │   │   ├── SettingsBffController.java
+    │   │   └── SearchBffController.java
+    │   ├── CurrenciesController.java # GET /api/v1/bff/currencies
     │   └── DashboardController.java  # GET /api/v1/dashboard/data
     ├── dto/response/
-    │   ├── (envelope from commons-core)
-    │   └── DashboardResponse.java
+    │   ├── bff/                      # BFF response DTOs
+    │   │   ├── OverviewBffResponse.java
+    │   │   ├── BanksBffResponse.java
+    │   │   ├── TransactionsBffResponse.java
+    │   │   ├── TransactionDetailBffResponse.java
+    │   │   ├── CategoriesBffResponse.java
+    │   │   ├── InvestmentsBffResponse.java
+    │   │   ├── ImportsBffResponse.java
+    │   │   ├── SettingsBffResponse.java
+    │   │   └── SearchBffResponse.java
+    │   ├── AvailableCurrenciesResponse.java
+    │   ├── DashboardResponse.java
+    │   └── SectionResponse.java      # Generic section response DTO wrapper
     ├── error/
     │   ├── ErrorResponseRenderer.java
     │   ├── GatewayErrorWebExceptionHandler.java
     │   └── GlobalExceptionHandler.java
     ├── filter/
-    │   ├── JwtAuthFilter.java        # order -2
-    │   ├── RateLimitFilter.java      # order -1
+    │   ├── JwtAuthFilter.java        # order -2 (enforces access token type check)
+    │   ├── RateLimitFilter.java      # order -1 (idle bucket eviction)
     │   └── LoggingFilter.java        # order  0
     └── mapper/
+        ├── BffMapper.java
         └── DashboardMapper.java
 ```
 
@@ -92,20 +178,29 @@ src/main/java/com/financialapp/gateway/
 Gateway-rendered responses (auth 401 `unauthorized`, rate-limit 429 `rate_limit_exceeded`,
 upstream failures `upstream_unavailable`) and the BFF endpoints use the shared envelope
 `{ status, title, code, message, data }` from `commons-core` (built from `financial-app-parent`).
-Downstream service error bodies pass through with their own `code` preserved.
 
 ## Endpoints / Routes
 
 | Method | Path | Handled by | Purpose |
 |--------|------|-----------|---------|
-| `GET` | `/api/v1/dashboard/data` | `DashboardController` (local) | BFF — aggregated dashboard (finances + banks) |
+| `GET` | `/api/v1/bff/overview` | `OverviewBffController` | Resumen Page BFF composition |
+| `GET` | `/api/v1/bff/banks` | `BanksBffController` | Bancos Page BFF composition |
+| `GET` | `/api/v1/bff/transactions` | `TransactionsBffController` | Movimientos Page BFF composition |
+| `GET` | `/api/v1/bff/transactions/{id}` | `TransactionsBffController` | Transaction detail with import run lookup |
+| `GET` | `/api/v1/bff/categories` | `CategoriesBffController` | Categorías Page BFF composition |
+| `GET` | `/api/v1/bff/investments` | `InvestmentsBffController` | Inversiones Page BFF composition |
+| `GET` | `/api/v1/bff/imports` | `ImportsBffController` | Importaciones Page BFF composition |
+| `GET` | `/api/v1/bff/settings` | `SettingsBffController` | Ajustes Page BFF composition |
+| `GET` | `/api/v1/bff/search?q=` | `SearchBffController` | Global ⌘K search composition |
+| `GET` | `/api/v1/bff/currencies` | `CurrenciesController` | Available currencies & default selector options |
+| `GET` | `/api/v1/dashboard/data` | `DashboardController` | Legacy dashboard BFF |
 | `*` | `/api/v1/auth/**` | proxy → ms-users :8081 | Login, register, token refresh, logout — **JWT-exempt** |
 | `*` | `/api/v1/users/**` | proxy → ms-users :8081 | User profile management |
 | `*` | `/api/v1/finances/**` | proxy → ms-finances :8082 | Transactions, categories, loans, card expenses |
 | `*` | `/api/v1/banks/**` | proxy → ms-banks :8083 | Bank accounts, loans, upcoming payments |
 | `GET` | `/api/v1/notifications/stream` | proxy → ms-notifications :8084 | SSE stream — `response-timeout: -1` |
 | `*` | `/api/v1/notifications/**` | proxy → ms-notifications :8084 | Notification read/management |
-| `*` | `/api/v1/upload/**` | proxy → ms-upload :8085 | File upload (skeleton) |
+| `*` | `/api/v1/upload/**` | proxy → ms-upload :8085 | File upload |
 | `*` | `/api/v1/investments/**` | proxy → ms-investments :8086 | Holdings, prices, portfolio |
 | `GET` | `/v3/api-docs/{service}` | proxy → each service | Per-service OpenAPI JSON (rewrite filter) |
 | `GET` | `/swagger-ui.html` | local (SpringDoc) | Aggregated Swagger UI — **JWT-exempt** |
@@ -117,8 +212,8 @@ All proxied routes receive an `X-Internal-Token` header (set via `AddRequestHead
 
 ```
 CorsWebFilter (HIGHEST_PRECEDENCE)
-  └─ JwtAuthFilter          @Order(-2)   reads access_token cookie → injects X-User-Id
-       └─ RateLimitFilter   @Order(-1)   per-IP token bucket
+  └─ JwtAuthFilter          @Order(-2)   reads access_token cookie → verifies type != "refresh" → injects X-User-Id
+       └─ RateLimitFilter   @Order(-1)   per-IP token bucket (evicts idle buckets)
             └─ LoggingFilter @Order(0)   timer + structured log
                  └─ Spring Cloud Gateway routing
 ```
@@ -131,6 +226,8 @@ CorsWebFilter (HIGHEST_PRECEDENCE)
 | `JWT_SECRET` | *(dev placeholder)* | HMAC-SHA signing key (Base64) |
 | `RATE_LIMIT_RPM` | `600` | Token bucket capacity per IP per minute |
 | `GATEWAY_TIMEOUT_PER_CALL_MS` | `3000` | Per-call timeout for BFF WebClient calls (ms) |
+| `GATEWAY_TIMEOUT_PAGE_BUDGET_MS` | `5000` | Per-page outer timeout budget for page BFFs |
+| `CACHE_FX_TTL_SECONDS` | `30` | Shared TTL cache duration for FX rate reads |
 | `ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:8080` | CORS allowed origins |
 | `INTERNAL_AUTH_TOKEN` | — | Added as `X-Internal-Token` on every proxied request |
 | `USERS_SERVICE_URL` | `http://localhost:8081` | ms-users upstream |
@@ -175,7 +272,7 @@ Swagger UI: **http://localhost:8080/swagger-ui.html**
 mvn clean package -DskipTests
 ```
 
-> Full design: `docs/specs/services/ms-gateway.md` (in the parent workspace).
+> Full design: `docs/specs/2026-08-05-wave2-redesign.md` (in the parent workspace).
 
 ## CI/CD
 

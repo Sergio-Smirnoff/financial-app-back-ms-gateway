@@ -2,8 +2,8 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
-import com.financialapp.gateway.domain.model.dashboard.LoanView;
-import com.financialapp.gateway.domain.model.dashboard.UpcomingPaymentView;
+import com.financialapp.gateway.domain.model.bff.LoanView;
+import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -15,6 +15,7 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,5 +64,26 @@ class BanksGatewayImplTest {
     void returns_empty_list_when_data_is_null() {
         String json = "{ \"success\": true, \"data\": null }";
         assertThat(gatewayReturning(json).fetchActiveLoans(new UserId(1L)).join()).isEmpty();
+    }
+
+    @Test
+    void fetches_loan_installments_as_raw_maps() {
+        String json = """
+            { "success": true, "data": [
+              { "id": 11, "loanId": 1, "installmentNumber": 1, "amount": "1500.00",
+                "dueDate": "2026-09-10", "paid": true, "paidDate": "2026-09-09" },
+              { "id": 12, "loanId": 1, "installmentNumber": 2, "amount": "1500.00",
+                "dueDate": "2026-10-10", "paid": false, "paidDate": null } ] }
+            """;
+        List<Map<String, Object>> result = gatewayReturning(json)
+                .fetchLoanInstallments(new UserId(1L), 1L).join();
+        assertThat(result).hasSize(2);
+        assertThat(result.getFirst().get("installmentNumber")).isEqualTo(1);
+    }
+
+    @Test
+    void loan_installments_empty_on_error_body() {
+        assertThat(gatewayReturning("{ \"success\": false }")
+                .fetchLoanInstallments(new UserId(1L), 9L).join()).isEmpty();
     }
 }

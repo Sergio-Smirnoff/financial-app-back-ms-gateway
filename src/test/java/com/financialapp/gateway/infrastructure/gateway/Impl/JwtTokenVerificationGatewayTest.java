@@ -4,6 +4,7 @@ import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.Principal;
 import com.financialapp.gateway.domain.exception.InvalidAccessTokenException;
 import com.financialapp.gateway.infrastructure.config.JwtProperties;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -11,35 +12,63 @@ import org.junit.jupiter.api.Test;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtTokenVerificationGatewayTest {
 
     private static final String SECRET =
             "dGhpcyBpcyBhIGRldmVsb3BtZW50IHBsYWNlaG9sZGVyIHNlY3JldA==";
 
-    private JwtTokenVerificationGateway gateway() {
+    private final JwtTokenVerificationGateway gateway = createGateway();
+
+    private JwtTokenVerificationGateway createGateway() {
         JwtProperties props = new JwtProperties();
         props.setEnabled(true);
         props.setSecret(SECRET);
         return new JwtTokenVerificationGateway(props);
     }
 
-    private String tokenWithUserId(long id) {
+    private String tokenWith(String type) {
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
-        return Jwts.builder().claims(Map.of("userId", id))
-                .expiration(new Date(System.currentTimeMillis() + 60_000)).signWith(key).compact();
+        JwtBuilder builder = Jwts.builder()
+                .subject("42")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 60_000));
+        if (type != null) {
+            builder.claim("type", type);
+        }
+        return builder.signWith(key).compact();
     }
 
-    @Test void verifies_and_extracts_userId() {
-        Principal p = gateway().verify(new AccessToken(tokenWithUserId(99L)));
-        assertEquals(99L, p.userId().value());
+    @Test
+    void acceptsAnAccessTypedToken() {
+        Principal principal = gateway.verify(new AccessToken(tokenWith("access")));
+        assertThat(principal.userId().value()).isEqualTo(42L);
     }
 
-    @Test void rejects_garbage_token() {
-        assertThrows(InvalidAccessTokenException.class,
-                () -> gateway().verify(new AccessToken("not.a.jwt")));
+    @Test
+    void acceptsATokenWithNoTypeClaimDuringRollover() {
+        Principal principal = gateway.verify(new AccessToken(tokenWith(null)));
+        assertThat(principal.userId().value()).isEqualTo(42L);
+    }
+
+    @Test
+    void rejectsARefreshTokenPresentedAsAnAccessToken() {
+        assertThatThrownBy(() -> gateway.verify(new AccessToken(tokenWith("refresh"))))
+                .isInstanceOf(InvalidAccessTokenException.class);
+    }
+
+    @Test
+    void rejectsAnUnknownTokenType() {
+        assertThatThrownBy(() -> gateway.verify(new AccessToken(tokenWith("something-else"))))
+                .isInstanceOf(InvalidAccessTokenException.class);
+    }
+
+    @Test
+    void rejectsGarbageToken() {
+        assertThatThrownBy(() -> gateway.verify(new AccessToken("not.a.jwt")))
+                .isInstanceOf(InvalidAccessTokenException.class);
     }
 }
