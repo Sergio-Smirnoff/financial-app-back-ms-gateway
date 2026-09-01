@@ -65,19 +65,18 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
         CompletableFuture<Section<List<MarketQuote>>> marketStripSec = applyBudget(
                 investments.fetchMarketPanel()
                         .thenApply(panel -> {
-                            Object quotesObj = panel.get("quotes");
-                            List<Map<String, Object>> list = quotesObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
+                            // The panel's strip data lives in "indices" ({code,value,variation});
+                            // "quotes" is the per-ticker price panel and has no code field.
+                            Object indicesObj = panel.get("indices");
+                            List<Map<String, Object>> list = indicesObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
+                            Instant obs = clock.instant();
                             return list.stream()
                                     .filter(q -> !String.valueOf(q.getOrDefault("code", "")).isBlank())
                                     .map(q -> {
                                         String code = String.valueOf(q.getOrDefault("code", ""));
-                                        String label = String.valueOf(q.getOrDefault("label", ""));
                                         BigDecimal val = parseDecimal(q.get("value"));
                                         BigDecimal var = parseDecimal(q.get("variation"));
-                                        String unitStr = String.valueOf(q.getOrDefault("unit", "PERCENT"));
-                                        MarketQuoteUnit unit = MarketQuoteUnit.valueOf(unitStr.toUpperCase());
-                                        Instant obs = parseInstant(q.get("observedAt"));
-                                        return new MarketQuote(code, label, val, var, unit, obs);
+                                        return new MarketQuote(code, indexLabel(code), val, var, indexUnit(code), obs);
                                     }).toList();
                         })
                         .handle((quotes, ex) -> {
@@ -208,6 +207,19 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                 Section.unavailable(fallback, ObservedAt.now(clock)),
                 budget.total().toMillis(),
                 TimeUnit.MILLISECONDS);
+    }
+
+    private static String indexLabel(String code) {
+        return switch (code) {
+            case "MERVAL" -> "Merval";
+            case "SP500" -> "S&P 500";
+            case "RIESGO_PAIS" -> "Riesgo país";
+            default -> code;
+        };
+    }
+
+    private static MarketQuoteUnit indexUnit(String code) {
+        return "RIESGO_PAIS".equals(code) ? MarketQuoteUnit.POINTS : MarketQuoteUnit.PERCENT;
     }
 
     private static BigDecimal parseDecimal(Object val) {
