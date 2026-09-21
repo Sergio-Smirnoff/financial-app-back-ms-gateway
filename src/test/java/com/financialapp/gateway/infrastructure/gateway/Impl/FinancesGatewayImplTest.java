@@ -77,6 +77,25 @@ class FinancesGatewayImplTest {
     }
 
     @Test
+    void fetchCategoriesCallsTheRealFinancesPath() {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    assertThat(request.url().getPath()).isEqualTo("/api/v1/finances/categories");
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"success\":true,\"data\":[{\"id\":5,\"name\":\"Comida\"}]}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        List<Map<String, Object>> cats = gateway.fetchCategories(new UserId(1L)).join();
+        assertThat(cats).singleElement().extracting(m -> m.get("name")).isEqualTo("Comida");
+    }
+
+    @Test
     void fetchTransactionsForwardsEveryFilterAndThePageNumber() {
         AtomicReference<String> capturedQuery = new AtomicReference<>();
         WebClient webClient = WebClient.builder()

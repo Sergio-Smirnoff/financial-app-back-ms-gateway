@@ -15,12 +15,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,6 +36,9 @@ class CategoriesBffTest {
     @BeforeEach
     void setUp() {
         useCase = new GetCategoriesBffUseCaseImpl(finances, investments, PageTimeoutBudget.fromMillis(3000));
+        lenient().when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        lenient().when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        lenient().when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
     }
 
     @Test
@@ -74,5 +79,26 @@ class CategoriesBffTest {
         assertThat(data.kpis().data().available().amount()).isEqualByComparingTo("60000.00");
         assertThat(data.kpis().data().overBudgetCount()).isZero();
         assertThat(data.kpis().data().pacePct()).isEqualByComparingTo("60.00");
+    }
+
+    @Test
+    void everyCategoryIsListedEvenWithoutABudget() {
+        when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("id", 5, "name", "Comida"),
+                Map.of("id", 7, "name", "Transporte"))));
+        when(finances.fetchBudgets(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("categoryId", 5, "categoryName", "Comida", "amount", "250000.00", "alertThresholdPct", "80"))));
+        when(finances.fetchBudgetPace(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("categoryId", 5, "spent", "100000.00", "pctUsed", "40", "overBudget", false))));
+
+        CategoriesBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        List<BudgetRow> rows = data.budgets().data();
+        assertThat(rows).extracting(BudgetRow::categoryId).containsExactlyInAnyOrder(5L, 7L);
+        BudgetRow unbudgeted = rows.stream().filter(r -> r.categoryId() == 7L).findFirst().orElseThrow();
+        assertThat(unbudgeted.name()).isEqualTo("Transporte");
+        assertThat(unbudgeted.cap()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(unbudgeted.pct()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(unbudgeted.over()).isFalse();
     }
 }

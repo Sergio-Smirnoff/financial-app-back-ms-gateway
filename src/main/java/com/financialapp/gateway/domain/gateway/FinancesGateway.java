@@ -20,6 +20,8 @@ public interface FinancesGateway {
 
     CompletableFuture<List<Map<String, Object>>> fetchBudgets(UserId userId, String period);
 
+    CompletableFuture<List<Map<String, Object>>> fetchCategories(UserId userId);
+
     CompletableFuture<List<Map<String, Object>>> fetchBudgetPace(UserId userId, String period);
 
     CompletableFuture<List<Map<String, Object>>> fetchCategorizationRules(UserId userId);

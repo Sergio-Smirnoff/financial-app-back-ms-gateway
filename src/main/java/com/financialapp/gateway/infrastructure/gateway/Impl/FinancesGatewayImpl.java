@@ -116,6 +116,19 @@ public class FinancesGatewayImpl implements FinancesGateway {
     }
 
     @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchCategories(UserId userId) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/categories")
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
     public CompletableFuture<List<Map<String, Object>>> fetchBudgetPace(UserId userId, String period) {
         YearMonth ym = YearMonth.parse(period);
         return webClient.get()
