@@ -9,6 +9,7 @@ import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.Section;
@@ -187,7 +188,7 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
 
         CompletableFuture<Section<List<TransactionRow>>> movementsSec = applyBudget(
                 Section.guard(
-                        finances.fetchTransactions(userId, 0, 10, null, null, null, null)
+                        finances.fetchTransactions(userId, new TransactionQuery(0, 10, List.of(), List.of(), null, null, null, null))
                                 .thenCombine(fxRateFuture, (res, fx) -> {
                                     Object contentObj = res.get("content");
                                     List<Map<String, Object>> rows = contentObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();

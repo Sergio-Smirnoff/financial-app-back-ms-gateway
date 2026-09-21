@@ -8,6 +8,7 @@ import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.UploadGateway;
 import com.financialapp.gateway.domain.model.bff.TransactionDetailBffData;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.bff.TransactionsBffData;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
@@ -39,17 +40,44 @@ class TransactionsBffTest {
         GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(finances, banks, investments, PageTimeoutBudget.fromMillis(3000));
 
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of(), "totalElements", 0)));
         when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchUncategorisedCount(any())).thenReturn(CompletableFuture.completedFuture(Map.of("count", 0)));
 
-        TransactionsBffData data = useCase.execute(new UserId(1L), 0, 20, null, null, null, null, CurrencyView.ARS, "none").join();
+        TransactionsBffData data = useCase.execute(
+                new UserId(1L),
+                new TransactionQuery(0, 20, List.of(), List.of(), null, null, null, null),
+                CurrencyView.ARS, "none").join();
 
         assertThat(data.summary().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.page().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.filterOptions().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void pageMetadataIsDerivedFromTheCursorPageEnvelope() {
+        GetTransactionsBffUseCaseImpl useCase = new GetTransactionsBffUseCaseImpl(
+                finances, banks, investments, PageTimeoutBudget.fromMillis(3000));
+
+        when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
+                .thenReturn(CompletableFuture.completedFuture(Map.of(
+                        "content", List.of(), "hasNext", true, "nextCursor", "abc", "totalElements", 45)));
+        when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchUncategorisedCount(any())).thenReturn(CompletableFuture.completedFuture(Map.of("count", 0)));
+
+        TransactionsBffData data = useCase.execute(
+                new UserId(1L),
+                new TransactionQuery(1, 20, List.of(), List.of(), null, null, null, null),
+                CurrencyView.ARS, "none").join();
+
+        assertThat(data.page().data().page()).isEqualTo(1);
+        assertThat(data.page().data().size()).isEqualTo(20);
+        assertThat(data.page().data().totalElements()).isEqualTo(45L);
+        assertThat(data.page().data().totalPages()).isEqualTo(3);
     }
 
     @Test

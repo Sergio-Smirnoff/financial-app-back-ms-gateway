@@ -2,6 +2,7 @@ package com.financialapp.gateway.domain.gateway;
 
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -13,8 +14,7 @@ public interface FinancesGateway {
     /** Per-currency income/expense/balance totals for [from, to]. */
     CompletableFuture<List<CurrencySummary>> fetchSummary(UserId userId, LocalDate from, LocalDate to);
 
-    CompletableFuture<Map<String, Object>> fetchTransactions(
-            UserId userId, int page, int size, List<String> categories, List<String> accounts, LocalDate from, LocalDate to);
+    CompletableFuture<Map<String, Object>> fetchTransactions(UserId userId, TransactionQuery query);
 
     CompletableFuture<Map<String, Object>> fetchTransactionById(UserId userId, Long id);
 

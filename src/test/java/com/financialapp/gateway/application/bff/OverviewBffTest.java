@@ -9,6 +9,7 @@ import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
@@ -61,7 +62,7 @@ class OverviewBffTest {
         when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
 
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
@@ -81,7 +82,7 @@ class OverviewBffTest {
         when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
 
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
@@ -105,7 +106,7 @@ class OverviewBffTest {
         when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
 
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "ARS").join();
@@ -126,7 +127,7 @@ class OverviewBffTest {
         when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
 
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "ARS").join();
@@ -150,7 +151,7 @@ class OverviewBffTest {
                 Map.of("id", 11, "installmentNumber", 1, "amount", "5000.00", "dueDate", "2026-09-10", "paid", false),
                 Map.of("id", 10, "installmentNumber", 0, "amount", "7000.00", "dueDate", "2026-08-10", "paid", true))));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
 
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
