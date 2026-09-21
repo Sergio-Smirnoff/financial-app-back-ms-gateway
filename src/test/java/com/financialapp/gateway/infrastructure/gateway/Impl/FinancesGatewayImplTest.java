@@ -3,6 +3,7 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -72,5 +74,76 @@ class FinancesGatewayImplTest {
 
         List<Map<String, Object>> hits = gateway.searchTransactions(new UserId(1L), "super").join();
         assertThat(hits).singleElement().extracting(m -> m.get("description")).isEqualTo("Supermercado");
+    }
+
+    @Test
+    void fetchCategoriesCallsTheRealFinancesPath() {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    assertThat(request.url().getPath()).isEqualTo("/api/v1/finances/categories");
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"success\":true,\"data\":[{\"id\":5,\"name\":\"Comida\"}]}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        List<Map<String, Object>> cats = gateway.fetchCategories(new UserId(1L)).join();
+        assertThat(cats).singleElement().extracting(m -> m.get("name")).isEqualTo("Comida");
+    }
+
+    @Test
+    void fetchTransactionsForwardsEveryFilterAndThePageNumber() {
+        AtomicReference<String> capturedQuery = new AtomicReference<>();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    capturedQuery.set(request.url().getQuery());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"status\":200,\"data\":{\"content\":[],\"hasNext\":false,\"nextCursor\":null,\"totalElements\":0}}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        gateway.fetchTransactions(new UserId(1L), new TransactionQuery(
+                2, 20, List.of("5", "9"), List.of("0001112223334445556667"),
+                "CREDIT_CARD", "super", null, null)).join();
+
+        assertThat(capturedQuery.get()).contains("page=2");
+        assertThat(capturedQuery.get()).contains("size=20");
+        assertThat(capturedQuery.get()).contains("categoryIds=5");
+        assertThat(capturedQuery.get()).contains("categoryIds=9");
+        assertThat(capturedQuery.get()).contains("accountCbus=0001112223334445556667");
+        assertThat(capturedQuery.get()).contains("paymentMethod=CREDIT_CARD");
+        assertThat(capturedQuery.get()).contains("q=super");
+    }
+
+    @Test
+    void fetchTransactionsTranslatesTheNoneCategoryIntoTheUncategorisedFlag() {
+        AtomicReference<String> capturedQuery = new AtomicReference<>();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    capturedQuery.set(request.url().getQuery());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"status\":200,\"data\":{\"content\":[],\"hasNext\":false,\"nextCursor\":null,\"totalElements\":0}}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        gateway.fetchTransactions(new UserId(1L), new TransactionQuery(
+                0, 20, List.of("none"), List.of(), null, null, null, null)).join();
+
+        assertThat(capturedQuery.get()).contains("onlyUncategorised=true");
+        assertThat(capturedQuery.get()).doesNotContain("categoryIds=");
     }
 }

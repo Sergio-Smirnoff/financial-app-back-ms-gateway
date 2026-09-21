@@ -185,7 +185,7 @@ upstream failures `upstream_unavailable`) and the BFF endpoints use the shared e
 |--------|------|-----------|---------|
 | `GET` | `/api/v1/bff/overview` | `OverviewBffController` | Resumen Page BFF composition |
 | `GET` | `/api/v1/bff/banks` | `BanksBffController` | Bancos Page BFF composition |
-| `GET` | `/api/v1/bff/transactions` | `TransactionsBffController` | Movimientos Page BFF composition |
+| `GET` | `/api/v1/bff/transactions` | `TransactionsBffController` | Movimientos Page BFF composition (forwards filters & method/q, derives page metadata) |
 | `GET` | `/api/v1/bff/transactions/{id}` | `TransactionsBffController` | Transaction detail with import run lookup |
 | `GET` | `/api/v1/bff/categories` | `CategoriesBffController` | Categorías Page BFF composition |
 | `GET` | `/api/v1/bff/investments` | `InvestmentsBffController` | Inversiones Page BFF composition |

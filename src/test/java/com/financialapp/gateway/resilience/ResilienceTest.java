@@ -7,6 +7,7 @@ import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
@@ -46,7 +47,7 @@ class ResilienceTest {
         when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchTransactions(any(), any(Integer.class), any(Integer.class), any(), any(), any(), any()))
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
                 .thenReturn(CompletableFuture.completedFuture(Map.of()));
 
         OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();

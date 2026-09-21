@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +32,9 @@ class SearchBffTest {
     @BeforeEach
     void setUp() {
         useCase = new GetSearchBffUseCaseImpl(finances, investments, PageTimeoutBudget.fromMillis(3000));
+        lenient().when(finances.searchTransactions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        lenient().when(investments.searchPositions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        lenient().when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
     }
 
     @Test
@@ -44,5 +48,15 @@ class SearchBffTest {
         assertThat(data.movements().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.positions().status()).isEqualTo(SectionStatus.OK);
         assertThat(data.categories().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void movementHitsLinkToTheTransactionsPageWithAnIdQueryParameter() {
+        when(finances.searchTransactions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                java.util.Map.of("id", 134, "description", "Supermercado", "amount", "1500.00", "currency", "ARS"))));
+
+        SearchBffData data = useCase.execute(new UserId(1L), "super").join();
+
+        assertThat(data.movements().data().get(0).href()).isEqualTo("/transactions?id=134");
     }
 }

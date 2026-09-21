@@ -4,6 +4,7 @@ import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.model.bff.CurrencySummary;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import com.financialapp.gateway.infrastructure.gateway.dto.FinanceCurrencyTotals;
 import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
@@ -52,15 +53,32 @@ public class FinancesGatewayImpl implements FinancesGateway {
     }
 
     @Override
-    public CompletableFuture<Map<String, Object>> fetchTransactions(
-            UserId userId, int page, int size, List<String> categories, List<String> accounts, LocalDate from, LocalDate to) {
+    public CompletableFuture<Map<String, Object>> fetchTransactions(UserId userId, TransactionQuery query) {
+        UriComponentsBuilder uri = UriComponentsBuilder.fromUriString(financesUrl + "/api/v1/finances/transactions")
+                .queryParam("page", query.page())
+                .queryParam("size", query.size())
+                .queryParamIfPresent("from", Optional.ofNullable(query.from()))
+                .queryParamIfPresent("to", Optional.ofNullable(query.to()));
+
+        List<String> categoryIds = query.categoryIds();
+        if (!categoryIds.isEmpty()) {
+            uri.queryParam("categoryIds", categoryIds);
+        }
+        if (query.onlyUncategorised()) {
+            uri.queryParam("onlyUncategorised", true);
+        }
+        if (!query.accounts().isEmpty()) {
+            uri.queryParam("accountCbus", query.accounts());
+        }
+        if (query.method() != null) {
+            uri.queryParam("paymentMethod", query.method());
+        }
+        if (query.query() != null) {
+            uri.queryParam("q", query.query());
+        }
+
         return webClient.get()
-                .uri(UriComponentsBuilder.fromUriString(financesUrl + "/api/v1/finances/transactions")
-                        .queryParam("size", size)
-                        .queryParamIfPresent("from", Optional.ofNullable(from))
-                        .queryParamIfPresent("to", Optional.ofNullable(to))
-                        .build()
-                        .toUri())
+                .uri(uri.build().toUri())
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(MAP_TYPE)
@@ -88,6 +106,19 @@ public class FinancesGatewayImpl implements FinancesGateway {
         YearMonth ym = YearMonth.parse(period);
         return webClient.get()
                 .uri(financesUrl + "/api/v1/finances/budgets?year={year}&month={month}", ym.getYear(), ym.getMonthValue())
+                .header("X-User-Id", userId.value().toString())
+                .retrieve()
+                .bodyToMono(LIST_MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
+                .onErrorReturn(List.of())
+                .timeout(timeoutPolicy.perCall())
+                .toFuture();
+    }
+
+    @Override
+    public CompletableFuture<List<Map<String, Object>>> fetchCategories(UserId userId) {
+        return webClient.get()
+                .uri(financesUrl + "/api/v1/finances/categories")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(LIST_MAP_TYPE)

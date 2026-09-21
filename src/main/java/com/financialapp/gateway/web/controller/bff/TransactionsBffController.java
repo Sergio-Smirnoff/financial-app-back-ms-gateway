@@ -2,6 +2,7 @@ package com.financialapp.gateway.web.controller.bff;
 
 import com.financialapp.commons.core.response.ApiResponse;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionDetailBffUseCase;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionsBffUseCase;
@@ -49,7 +50,9 @@ public class TransactionsBffController {
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(value = "currency", defaultValue = "ARS") String currencyStr,
-            @RequestParam(value = "secondary", defaultValue = "none") String secondary) {
+            @RequestParam(value = "secondary", defaultValue = "none") String secondary,
+            @RequestParam(value = "method", required = false) String method,
+            @RequestParam(value = "q", required = false) String query) {
 
         CurrencyView view;
         try {
@@ -59,7 +62,9 @@ public class TransactionsBffController {
         }
 
         return Mono.fromFuture(getTransactionsBffUseCase.execute(
-                new UserId(userId), page, size, categories, accounts, from, to, view, secondary))
+                new UserId(userId),
+                new TransactionQuery(page, size, categories, accounts, method, query, from, to),
+                view, secondary))
                 .map(data -> ApiResponse.ok(new TransactionsBffResponse(
                         BffMapper.toSectionResponse(data.summary(), BffMapper::toTransactionsSummaryResponse),
                         BffMapper.toSectionResponse(data.page(), BffMapper::toTransactionsPageResponse),
