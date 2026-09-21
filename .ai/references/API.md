@@ -24,6 +24,7 @@ Route mappings, BFF endpoints, and gateway error normalization. Envelope shape: 
 |---|---|---|---|
 | GET | `/api/v1/dashboard/data` | Aggregated dashboard view (finances + banks + FX) with partial degradation | ms-finances, ms-banks, ms-investments |
 | GET | `/api/v1/bff/currencies` | Available currencies list & default selector options | ms-banks, ms-investments, ms-users |
+| GET | `/api/v1/bff/transactions` | Paginated transactions with summary, filter options, and uncategorised count (`?page=&size=&categories=&accounts=&method=&q=&from=&to=&currency=&secondary`). Page metadata (`totalPages = ceil(totalElements / size)`) is derived because ms-finances returns cursor paging. | ms-finances, ms-investments |
 
 ## DomainError catalog
 

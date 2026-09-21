@@ -31,3 +31,10 @@ WebFlux filter chain order before downstream proxy routing:
 | `PageTimeoutBudget` | `GATEWAY_TIMEOUT_PAGE_BUDGET_MS` (5 000 ms) | Outer timeout budget for page-level BFF aggregation calls |
 | `Section<T>` | `OK` or `UNAVAILABLE` + `ObservedAt` | Wraps BFF data sections; supports partial degradation with freshness timestamp |
 | `TtlCache` | `CACHE_FX_TTL_SECONDS` (30 s) | 30s single-flight TTL cache on shared FX rate reads |
+
+## Transaction Filtering & Paging Translation
+
+`TransactionQuery` forwards filter parameters to `FinancesGateway`:
+- `categories=none` translates to `onlyUncategorised=true` in `FinancesGatewayImpl`.
+- Multiple categories/accounts, `method`, `q`, and 0-based `page` are forwarded as query params.
+- `PageMetadata` (`page`, `size`, `totalElements`, `totalPages`) is derived (`totalPages = ceil(totalElements / size)`) because ms-finances returns cursor paging.
