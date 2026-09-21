@@ -82,7 +82,7 @@ public class GetBanksBffUseCaseImpl implements GetBanksBffUseCase {
                                     Optional<FxRate> fx = fxRateFuture.join();
                                     List<Map<String, Object>> accList = accountsFuture.join();
                                     BigDecimal totalCash = accList.stream().map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal cardDebt = cardsFuture.join().stream().map(c -> parseDecimal(c.get("usedBalance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal cardDebt = cardsFuture.join().stream().map(CardFigures::usedAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal loanBalance = enrichedLoansFuture.join().stream()
                                             .map(e -> LoanScheduleSupport.outstanding(e.schedule()))
                                             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -118,8 +118,8 @@ public class GetBanksBffUseCaseImpl implements GetBanksBffUseCase {
                             String brand = String.valueOf(c.getOrDefault("brand", ""));
                             String alias = String.valueOf(c.getOrDefault("alias", ""));
                             BigDecimal limit = parseDecimal(c.get("creditLimit"));
-                            BigDecimal used = parseDecimal(c.get("usedBalance"));
-                            BigDecimal pct = limit.compareTo(BigDecimal.ZERO) > 0 ? used.divide(limit, 4, RoundingMode.HALF_EVEN).multiply(new BigDecimal("100")) : BigDecimal.ZERO;
+                            BigDecimal used = CardFigures.usedAmount(c);
+                            BigDecimal pct = CardFigures.usedPercent(c, limit);
                             LocalDate closing = parseDate(c.get("closingDate"));
                             LocalDate due = parseDate(c.get("dueDate"));
                             return new CardRow(num, brand, alias, limit, BffMoneyConverter.convert(used, Currency.ARS, currencyView, secondary, fx), pct, closing, due);

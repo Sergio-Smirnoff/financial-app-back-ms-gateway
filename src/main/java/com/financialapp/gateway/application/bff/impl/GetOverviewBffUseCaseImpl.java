@@ -123,7 +123,7 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
                                     BigDecimal cash = accountsFuture.join().stream()
                                             .filter(a -> !"SAVINGS".equalsIgnoreCase(String.valueOf(a.get("type"))))
                                             .map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal cardDebt = cardsFuture.join().stream().map(c -> parseDecimal(c.get("usedBalance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal cardDebt = cardsFuture.join().stream().map(CardFigures::usedAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal loanDebt = enrichedLoansFuture.join().stream()
                                             .map(e -> LoanScheduleSupport.outstanding(e.schedule()))
                                             .reduce(BigDecimal.ZERO, BigDecimal::add);

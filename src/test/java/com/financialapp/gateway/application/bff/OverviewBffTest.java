@@ -162,4 +162,24 @@ class OverviewBffTest {
         assertThat(data.breakdown().data().cash().amount()).isEqualByComparingTo("40000.00");
         assertThat(data.breakdown().data().debt().amount()).isEqualByComparingTo("20000.00");
     }
+
+    @Test
+    void cardDebtReportsTheUsedAmountSentByMsBanks() {
+        when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of(
+                "cardNumber", "1111", "brand", "VISA", "alias", "Personal",
+                "creditLimit", "100000.00", "usedAmount", "1666.67", "usedPercent", "1.67"))));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchSpendByCategory(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchTransactions(any(), any(TransactionQuery.class)))
+                .thenReturn(CompletableFuture.completedFuture(Map.of("content", List.of())));
+
+        OverviewBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        assertThat(data.breakdown().data().debt().amount()).isEqualByComparingTo("1666.67");
+    }
 }

@@ -5,6 +5,7 @@ import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.UploadGateway;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.CardRow;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.ImportHealthRow;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.ImportStatus;
 import com.financialapp.gateway.domain.model.bff.BanksBffData;
@@ -108,5 +109,23 @@ class BanksBffTest {
         assertThat(row.installmentsTotal()).isEqualTo(12);
         assertThat(row.nextInstallmentDate()).isEqualTo(LocalDate.of(2026, 9, 10));
         assertThat(data.kpis().data().loanBalance().amount()).isEqualByComparingTo(new BigDecimal("1800.00"));
+    }
+
+    @Test
+    void cardRowsReportTheUsedAmountSentByMsBanks() {
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of(
+                "cardNumber", "1111", "brand", "VISA", "alias", "Personal",
+                "creditLimit", "100000.00", "usedAmount", "1666.67", "usedPercent", "1.67"))));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(upload.fetchHistory(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        BanksBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        CardRow card = data.cards().data().get(0);
+        assertThat(card.used().amount()).isEqualByComparingTo("1666.67");
+        assertThat(card.usedPct()).isEqualByComparingTo("1.67");
+        assertThat(data.kpis().data().cardDebt().amount()).isEqualByComparingTo("1666.67");
     }
 }
