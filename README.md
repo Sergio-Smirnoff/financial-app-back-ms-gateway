@@ -28,7 +28,7 @@ src/main/java/com/financialapp/gateway/
 │   │   └── InvalidAccessTokenException.java
 │   ├── gateway/
 │   │   ├── BanksGateway.java         # port — accounts, cards, loans, payments, fees
-│   │   ├── FinancesGateway.java      # port — transactions, budgets, spend by category
+│   │   ├── FinancesGateway.java      # port — transactions, categories, budgets, spend by category
 │   │   ├── InvestmentsGateway.java   # port — portfolio, holdings, evolution, market panel, fx rates, fees
 │   │   ├── NotificationsGateway.java # port — unread count, latest, notification preferences
 │   │   ├── UploadGateway.java        # port — import history, run details
@@ -47,7 +47,8 @@ src/main/java/com/financialapp/gateway/
 │   │   │   ├── InvestmentsBffData.java
 │   │   │   ├── ImportsBffData.java
 │   │   │   ├── SettingsBffData.java
-│   │   │   └── SearchBffData.java
+│   │   │   ├── SearchBffData.java
+│   │   │   └── TransactionQuery.java # filter/paging query VO consumed by FinancesGateway
 │   │   ├── composition/
 │   │   │   ├── ObservedAt.java       # freshness timestamp VO
 │   │   │   ├── PageTimeoutBudget.java# per-page outer timeout budget VO
@@ -96,7 +97,8 @@ src/main/java/com/financialapp/gateway/
 │   │   ├── GetInvestmentsBffUseCaseImpl.java
 │   │   ├── GetImportsBffUseCaseImpl.java
 │   │   ├── GetSettingsBffUseCaseImpl.java
-│   │   └── GetSearchBffUseCaseImpl.java
+│   │   ├── GetSearchBffUseCaseImpl.java
+│   │   └── CardFigures.java          # shared usedAmount/usedPercent reader off the raw ms-banks card map
 │   ├── currency/impl/
 │   │   └── GetAvailableCurrenciesUseCaseImpl.java
 │   └── dashboard/impl/
