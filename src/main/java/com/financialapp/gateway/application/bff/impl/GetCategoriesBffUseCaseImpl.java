@@ -104,6 +104,18 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                                         if (catId == null) continue;
                                         String name = String.valueOf(category.getOrDefault("name", ""));
                                         rows.add(toBudgetRow(catId, name, budgetByCategory.remove(catId), paceByCategory, currencyView, secondary, fx));
+
+                                        Object subsObj = category.get("subcategories");
+                                        if (subsObj instanceof List<?> subs) {
+                                            for (Object subObj : subs) {
+                                                if (!(subObj instanceof Map<?, ?> sub)) continue;
+                                                Long subId = parseLong(sub.get("id"));
+                                                if (subId == null) continue;
+                                                Object rawSubName = sub.get("name");
+                                                String subName = name + " / " + (rawSubName != null ? rawSubName : "");
+                                                rows.add(toBudgetRow(subId, subName, budgetByCategory.remove(subId), paceByCategory, currencyView, secondary, fx));
+                                            }
+                                        }
                                     }
                                     for (Map.Entry<Long, Map<String, Object>> orphan : budgetByCategory.entrySet()) {
                                         Map<String, Object> b = orphan.getValue();

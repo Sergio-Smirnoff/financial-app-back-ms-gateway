@@ -101,4 +101,28 @@ class CategoriesBffTest {
         assertThat(unbudgeted.pct()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(unbudgeted.over()).isFalse();
     }
+
+    @Test
+    void subcategoriesAreListedEvenWithoutABudget() {
+        when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("id", 5, "name", "Comida", "subcategories", List.of(
+                        Map.of("id", 51, "name", "Supermercado"),
+                        Map.of("id", 52, "name", "Restaurantes"))))));
+        when(finances.fetchBudgets(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("categoryId", 51, "categoryName", "Supermercado", "amount", "120000.00"))));
+        when(finances.fetchBudgetPace(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        CategoriesBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        List<BudgetRow> rows = data.budgets().data();
+        assertThat(rows).extracting(BudgetRow::categoryId).containsExactlyInAnyOrder(5L, 51L, 52L);
+
+        BudgetRow unbudgetedChild = rows.stream().filter(r -> r.categoryId() == 52L).findFirst().orElseThrow();
+        assertThat(unbudgetedChild.name()).isEqualTo("Comida / Restaurantes");
+        assertThat(unbudgetedChild.cap()).isEqualByComparingTo(BigDecimal.ZERO);
+
+        BudgetRow budgetedChild = rows.stream().filter(r -> r.categoryId() == 51L).findFirst().orElseThrow();
+        assertThat(budgetedChild.cap()).isEqualByComparingTo("120000.00");
+        assertThat(budgetedChild.name()).isEqualTo("Comida / Supermercado");
+    }
 }
