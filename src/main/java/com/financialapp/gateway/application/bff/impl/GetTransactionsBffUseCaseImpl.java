@@ -99,7 +99,7 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
                                     List<Map<String, Object>> contentList = contentObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
                                     List<TransactionRow> rows = contentList.stream().map(r -> mapTransactionRow(r, currencyView, secondary, fx)).toList();
                                     long totalEl = parseLongVal(res.get("totalElements"), rows.size());
-                                    int totalP = query.size() > 0 ? (int) Math.ceil((double) totalEl / query.size()) : 1;
+                                    int totalP = (int) Math.ceil((double) totalEl / query.size());
                                     return new TransactionsPage(rows, query.page(), query.size(), totalEl, Math.max(totalP, 1));
                                 }),
                         TransactionsPage.empty(), clock),
@@ -175,11 +175,6 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
     private static long parseLongVal(Object val, long fallback) {
         if (val == null) return fallback;
         try { return Long.parseLong(val.toString()); } catch (Exception e) { return fallback; }
-    }
-
-    private static int parseInt(Object val, int fallback) {
-        if (val == null) return fallback;
-        try { return Integer.parseInt(val.toString()); } catch (Exception e) { return fallback; }
     }
 
     private static LocalDate parseDate(Object val) {
