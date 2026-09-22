@@ -34,8 +34,11 @@ Route mappings, BFF endpoints, and gateway error normalization. Envelope shape: 
   `fetchCategories` — including ones with no `fetchBudgets` row — and every one of its
   subcategories, emitting a `BudgetRow` per category **and** per subcategory. A subcategory's row
   carries a synthetic `"<parent name> / <child name>"` label (`BudgetRow` has a single `name`
-  field; there is no `parentId`). Any budget left unmatched after the walk (an orphaned
-  `categoryId`) still gets a row, named from the budget's own `categoryName`.
+  field) and a nullable `parentId` — the parent category's id on subcategory rows, `null` on
+  root-category rows and on orphan rows. The frontend offers "add subcategory" only on rows whose
+  `parentId` is `null`, since ms-finances rejects a subcategory as a parent. Any budget left
+  unmatched after the walk (an orphaned `categoryId`) still gets a row, named from the budget's own
+  `categoryName`, with `parentId` `null`.
 - **Card figures:** `CardFigures` (`application/bff/impl/CardFigures.java`) is the shared reader for
   a card's `usedAmount`/`usedPercent` off the raw ms-banks map — `usedPercent` falls back to
   computing `usedAmount / creditLimit` when ms-banks reports `0`.
