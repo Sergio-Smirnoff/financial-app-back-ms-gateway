@@ -146,4 +146,72 @@ class FinancesGatewayImplTest {
         assertThat(capturedQuery.get()).contains("onlyUncategorised=true");
         assertThat(capturedQuery.get()).doesNotContain("categoryIds=");
     }
+
+    @Test
+    void fetchTransactionsEncodesReservedCharactersAndNonAscii() {
+        AtomicReference<String> capturedQuery = new AtomicReference<>();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    capturedQuery.set(request.url().getRawQuery());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"status\":200,\"data\":{\"content\":[],\"hasNext\":false,\"nextCursor\":null,\"totalElements\":0}}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        gateway.fetchTransactions(new UserId(1L), new TransactionQuery(
+                0, 20, List.of(), List.of(), null, "Bed & Bath cafétería", null, null)).join();
+
+        assertThat(capturedQuery.get()).contains("q=Bed%20%26%20Bath%20caf%C3%A9ter%C3%ADa");
+        assertThat(capturedQuery.get()).doesNotContain("Bath&");
+    }
+
+    @Test
+    void fetchTransactionsDoesNotLetTheQueryInjectExtraParameters() {
+        AtomicReference<String> capturedQuery = new AtomicReference<>();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    capturedQuery.set(request.url().getRawQuery());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"status\":200,\"data\":{\"content\":[],\"hasNext\":false,\"nextCursor\":null,\"totalElements\":0}}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        gateway.fetchTransactions(new UserId(1L), new TransactionQuery(
+                0, 20, List.of(), List.of(), null, "x&onlyUncategorised=true", null, null)).join();
+
+        assertThat(capturedQuery.get()).doesNotContain("&onlyUncategorised=true");
+        assertThat(capturedQuery.get()).contains("%26onlyUncategorised%3Dtrue");
+    }
+
+    @Test
+    void fetchTransactionsEncodesBracesInsteadOfTreatingThemAsUriVariables() {
+        AtomicReference<String> capturedQuery = new AtomicReference<>();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    capturedQuery.set(request.url().getRawQuery());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"status\":200,\"data\":{\"content\":[],\"hasNext\":false,\"nextCursor\":null,\"totalElements\":0}}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        FinancesGatewayImpl gateway = new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        gateway.fetchTransactions(new UserId(1L), new TransactionQuery(
+                0, 20, List.of(), List.of(), null, "a{b}c", null, null)).join();
+
+        assertThat(capturedQuery.get()).contains("q=a%7Bb%7Dc");
+    }
 }
