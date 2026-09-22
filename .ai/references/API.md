@@ -42,10 +42,16 @@ Route mappings, BFF endpoints, and gateway error normalization. Envelope shape: 
 - **Search-hit contract:** `GetSearchBffUseCaseImpl` links every movements search hit to
   `href = "/transactions?id=" + id` — the frontend's `/transactions` page must open the detail
   panel for that `id` query param (see front `API_CLIENT.md`).
-- **Percent-encoding:** every downstream query value the gateway forwards (`FinancesGatewayImpl`,
-  `TransactionQuery`, etc.) goes through `UriComponentsBuilder...build().encode().toUri()` — braces,
-  `&`, `=`, `%` and non-ASCII characters in a filter value are all percent-encoded before the
-  downstream call, so a literal `&` or `%` in a search term cannot inject an extra query parameter.
+- **Percent-encoding:** `FinancesGatewayImpl.fetchTransactions` builds its dynamic filter query
+  with `UriComponentsBuilder` and must call `.build().encode().toUri()` — **never**
+  `.encode().build()`, which throws on a literal `{`/`}` in a filter value (e.g. a category name).
+  Every other `FinancesGatewayImpl` call (`fetchSummary`, `fetchBudgets`, `fetchCategories`,
+  `fetchTransactionById`, `searchTransactions`, `fetchMonthlyFlow`, …) passes its values as URI
+  template variables to WebClient's `.uri(template, vars...)` overload, which Spring's default
+  `UriBuilderFactory` percent-encodes on its own — braces, `&`, `=`, `%` and non-ASCII characters
+  in a filter value are percent-encoded either way, so a literal `&` or `%` in a search term
+  cannot inject an extra query parameter, but the two call shapes reach that guarantee through
+  different mechanisms.
 
 ## DomainError catalog
 
