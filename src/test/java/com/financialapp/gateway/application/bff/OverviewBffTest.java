@@ -145,7 +145,7 @@ class OverviewBffTest {
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of(
                 Map.of("type", "SAVINGS", "balance", "100000.00"),
                 Map.of("type", "CHECKING", "balance", "40000.00"))));
-        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("usedBalance", "15000.00"))));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("usedAmount", "15000.00"))));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of("id", 1, "name", "Auto"))));
         when(banks.fetchLoanInstallments(any(), eq(1L))).thenReturn(CompletableFuture.completedFuture(List.of(
                 Map.of("id", 11, "installmentNumber", 1, "amount", "5000.00", "dueDate", "2026-09-10", "paid", false),

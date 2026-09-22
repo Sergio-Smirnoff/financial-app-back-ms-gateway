@@ -10,11 +10,7 @@ final class CardFigures {
     }
 
     static BigDecimal usedAmount(Map<String, Object> card) {
-        Object val = card.get("usedAmount");
-        if (val == null) {
-            val = card.get("usedBalance");
-        }
-        return toDecimal(val);
+        return toDecimal(card.get("usedAmount"));
     }
 
     static BigDecimal usedPercent(Map<String, Object> card, BigDecimal creditLimit) {

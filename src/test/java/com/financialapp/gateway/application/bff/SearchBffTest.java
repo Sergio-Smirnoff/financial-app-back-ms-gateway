@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +54,7 @@ class SearchBffTest {
     @Test
     void movementHitsLinkToTheTransactionsPageWithAnIdQueryParameter() {
         when(finances.searchTransactions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
-                java.util.Map.of("id", 134, "description", "Supermercado", "amount", "1500.00", "currency", "ARS"))));
+                Map.of("id", 134, "description", "Supermercado", "amount", "1500.00", "currency", "ARS"))));
 
         SearchBffData data = useCase.execute(new UserId(1L), "super").join();
 

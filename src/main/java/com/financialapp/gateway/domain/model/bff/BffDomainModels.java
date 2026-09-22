@@ -111,7 +111,7 @@ public class BffDomainModels {
         }
     }
 
-    public record BudgetRow(Long categoryId, String name, BigDecimal cap, MoneyFigure spent, BigDecimal pct, BigDecimal alertThresholdPct, Boolean over) {}
+    public record BudgetRow(Long categoryId, Long parentId, String name, BigDecimal cap, MoneyFigure spent, BigDecimal pct, BigDecimal alertThresholdPct, Boolean over) {}
     public record CategoryTrendPoint(String month, MoneyFigure amount) {}
     public record CategoryTrend(Long categoryId, List<CategoryTrendPoint> points) {
         public static CategoryTrend empty() {

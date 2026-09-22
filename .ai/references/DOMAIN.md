@@ -37,4 +37,5 @@ WebFlux filter chain order before downstream proxy routing:
 `TransactionQuery` forwards filter parameters to `FinancesGateway`:
 - `categories=none` translates to `onlyUncategorised=true` in `FinancesGatewayImpl`.
 - Multiple categories/accounts, `method`, `q`, and 0-based `page` are forwarded as query params.
-- `PageMetadata` (`page`, `size`, `totalElements`, `totalPages`) is derived (`totalPages = ceil(totalElements / size)`) because ms-finances returns cursor paging.
+- `BffDomainModels.TransactionsPage` (`rows`, `page`, `size`, `totalElements`, `totalPages`) is
+  derived (`totalPages = ceil(totalElements / size)`) because ms-finances returns cursor paging.

@@ -185,7 +185,7 @@ public final class BffMapper {
 
     public static BudgetRowResponse toBudgetRowResponse(BudgetRow b) {
         if (b == null) return null;
-        return new BudgetRowResponse(b.categoryId(), b.name(), b.cap(), toMoneyView(b.spent()), b.pct(), b.alertThresholdPct(), b.over());
+        return new BudgetRowResponse(b.categoryId(), b.parentId(), b.name(), b.cap(), toMoneyView(b.spent()), b.pct(), b.alertThresholdPct(), b.over());
     }
 
     public static CategoryTrendResponse toCategoryTrendResponse(CategoryTrend t) {

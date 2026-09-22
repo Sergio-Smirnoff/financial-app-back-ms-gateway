@@ -78,7 +78,7 @@ public class FinancesGatewayImpl implements FinancesGateway {
         }
 
         return webClient.get()
-                .uri(uri.build().toUri())
+                .uri(uri.build().encode().toUri())
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(MAP_TYPE)
