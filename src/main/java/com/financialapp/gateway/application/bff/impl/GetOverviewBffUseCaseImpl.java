@@ -9,6 +9,7 @@ import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.Section;
@@ -122,7 +123,7 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
                                     BigDecimal cash = accountsFuture.join().stream()
                                             .filter(a -> !"SAVINGS".equalsIgnoreCase(String.valueOf(a.get("type"))))
                                             .map(a -> parseDecimal(a.get("balance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal cardDebt = cardsFuture.join().stream().map(c -> parseDecimal(c.get("usedBalance"))).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal cardDebt = cardsFuture.join().stream().map(CardFigures::usedAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     BigDecimal loanDebt = enrichedLoansFuture.join().stream()
                                             .map(e -> LoanScheduleSupport.outstanding(e.schedule()))
                                             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -187,7 +188,7 @@ public class GetOverviewBffUseCaseImpl implements GetOverviewBffUseCase {
 
         CompletableFuture<Section<List<TransactionRow>>> movementsSec = applyBudget(
                 Section.guard(
-                        finances.fetchTransactions(userId, 0, 10, null, null, null, null)
+                        finances.fetchTransactions(userId, new TransactionQuery(0, 10, List.of(), List.of(), null, null, null, null))
                                 .thenCombine(fxRateFuture, (res, fx) -> {
                                     Object contentObj = res.get("content");
                                     List<Map<String, Object>> rows = contentObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();

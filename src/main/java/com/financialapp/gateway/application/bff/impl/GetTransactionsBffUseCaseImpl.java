@@ -6,6 +6,7 @@ import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
+import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.bff.TransactionsBffData;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
@@ -56,21 +57,19 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
 
     @Override
     public CompletableFuture<TransactionsBffData> execute(
-            UserId userId, int page, int size,
-            List<String> categories, List<String> accounts,
-            LocalDate from, LocalDate to,
-            CurrencyView currencyView, String secondary) {
+            UserId userId, TransactionQuery query, CurrencyView currencyView, String secondary) {
 
         LocalDate today = LocalDate.now(clock);
-        LocalDate summaryFrom = from != null ? from : today.withDayOfMonth(1);
-        LocalDate summaryTo = to != null ? to : today;
+        LocalDate summaryFrom = query.from() != null ? query.from() : today.withDayOfMonth(1);
+        LocalDate summaryTo = query.to() != null ? query.to() : today;
 
         CompletableFuture<Optional<FxRate>> fxRateFuture = currencyView != CurrencyView.ARS ?
                 investments.fetchFxRate(currencyView, today) : CompletableFuture.completedFuture(Optional.empty());
 
         CompletableFuture<List<CurrencySummary>> summaryTotalsFuture = finances.fetchSummary(userId, summaryFrom, summaryTo);
-        CompletableFuture<Map<String, Object>> summaryWindowFuture =
-                finances.fetchTransactions(userId, 0, 1, categories, accounts, summaryFrom, summaryTo);
+        CompletableFuture<Map<String, Object>> summaryWindowFuture = finances.fetchTransactions(
+                userId,
+                new TransactionQuery(0, 1, query.categories(), query.accounts(), query.method(), query.query(), summaryFrom, summaryTo));
 
         CompletableFuture<Section<TransactionsSummary>> summarySec = applyBudget(
                 Section.guard(
@@ -94,16 +93,14 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
 
         CompletableFuture<Section<TransactionsPage>> pageSec = applyBudget(
                 Section.guard(
-                        finances.fetchTransactions(userId, page, size, categories, accounts, from, to)
+                        finances.fetchTransactions(userId, query)
                                 .thenCombine(fxRateFuture, (res, fx) -> {
                                     Object contentObj = res.get("content");
                                     List<Map<String, Object>> contentList = contentObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
                                     List<TransactionRow> rows = contentList.stream().map(r -> mapTransactionRow(r, currencyView, secondary, fx)).toList();
-                                    int p = parseInt(res.get("number"), page);
-                                    int s = parseInt(res.get("size"), size);
                                     long totalEl = parseLongVal(res.get("totalElements"), rows.size());
-                                    int totalP = parseInt(res.get("totalPages"), 1);
-                                    return new TransactionsPage(rows, p, s, totalEl, totalP);
+                                    int totalP = (int) Math.ceil((double) totalEl / query.size());
+                                    return new TransactionsPage(rows, query.page(), query.size(), totalEl, Math.max(totalP, 1));
                                 }),
                         TransactionsPage.empty(), clock),
                 TransactionsPage.empty());
@@ -178,11 +175,6 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
     private static long parseLongVal(Object val, long fallback) {
         if (val == null) return fallback;
         try { return Long.parseLong(val.toString()); } catch (Exception e) { return fallback; }
-    }
-
-    private static int parseInt(Object val, int fallback) {
-        if (val == null) return fallback;
-        try { return Integer.parseInt(val.toString()); } catch (Exception e) { return fallback; }
     }
 
     private static LocalDate parseDate(Object val) {

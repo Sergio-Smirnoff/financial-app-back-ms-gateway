@@ -77,7 +77,7 @@ public class BffWebResponses {
 
     public record CategoriesKpisResponse(MoneyView spent, MoneyView available, Integer overBudgetCount, BigDecimal pacePct) {}
 
-    public record BudgetRowResponse(Long categoryId, String name, BigDecimal cap, MoneyView spent, BigDecimal pct, BigDecimal alertThresholdPct, Boolean over) {}
+    public record BudgetRowResponse(Long categoryId, Long parentId, String name, BigDecimal cap, MoneyView spent, BigDecimal pct, BigDecimal alertThresholdPct, Boolean over) {}
     public record CategoryTrendPointResponse(String month, MoneyView amount) {}
     public record CategoryTrendResponse(Long categoryId, List<CategoryTrendPointResponse> points) {}
 

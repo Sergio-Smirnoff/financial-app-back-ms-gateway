@@ -51,7 +51,7 @@ public class GetSearchBffUseCaseImpl implements GetSearchBffUseCase {
                                     String id = String.valueOf(m.getOrDefault("id", ""));
                                     String label = String.valueOf(m.getOrDefault("description", ""));
                                     String sublabel = String.valueOf(m.getOrDefault("amount", "")) + " " + String.valueOf(m.getOrDefault("currency", "ARS"));
-                                    String href = "/transactions/" + id;
+                                    String href = "/transactions?id=" + id;
                                     return new SearchHit(id, label, sublabel, href);
                                 }).toList()),
                         List.of(), clock),
