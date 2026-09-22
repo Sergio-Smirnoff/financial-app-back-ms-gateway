@@ -103,7 +103,7 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                                         Long catId = parseLong(category.get("id"));
                                         if (catId == null) continue;
                                         String name = String.valueOf(category.getOrDefault("name", ""));
-                                        rows.add(toBudgetRow(catId, name, budgetByCategory.remove(catId), paceByCategory, currencyView, secondary, fx));
+                                        rows.add(toBudgetRow(catId, null, name, budgetByCategory.remove(catId), paceByCategory, currencyView, secondary, fx));
 
                                         Object subsObj = category.get("subcategories");
                                         if (subsObj instanceof List<?> subs) {
@@ -113,14 +113,14 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                                                 if (subId == null) continue;
                                                 Object rawSubName = sub.get("name");
                                                 String subName = name + " / " + (rawSubName != null ? rawSubName : "");
-                                                rows.add(toBudgetRow(subId, subName, budgetByCategory.remove(subId), paceByCategory, currencyView, secondary, fx));
+                                                rows.add(toBudgetRow(subId, catId, subName, budgetByCategory.remove(subId), paceByCategory, currencyView, secondary, fx));
                                             }
                                         }
                                     }
                                     for (Map.Entry<Long, Map<String, Object>> orphan : budgetByCategory.entrySet()) {
                                         Map<String, Object> b = orphan.getValue();
                                         String name = String.valueOf(b.getOrDefault("categoryName", b.getOrDefault("name", "")));
-                                        rows.add(toBudgetRow(orphan.getKey(), name, b, paceByCategory, currencyView, secondary, fx));
+                                        rows.add(toBudgetRow(orphan.getKey(), null, name, b, paceByCategory, currencyView, secondary, fx));
                                     }
                                     return List.copyOf(rows);
                                 }),
@@ -168,7 +168,7 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
     }
 
     private BudgetRow toBudgetRow(
-            Long categoryId, String name, Map<String, Object> budget,
+            Long categoryId, Long parentId, String name, Map<String, Object> budget,
             Map<Long, Map<String, Object>> paceByCategory,
             CurrencyView currencyView, String secondary, Optional<FxRate> fx) {
         Map<String, Object> budgetRow = budget != null ? budget : Map.of();
@@ -178,7 +178,7 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
         BigDecimal spent = parseDecimal(pace.get("spent"));
         BigDecimal pct = parseDecimal(pace.get("pctUsed"));
         Boolean over = Boolean.TRUE.equals(pace.get("overBudget"));
-        return new BudgetRow(categoryId, name, cap,
+        return new BudgetRow(categoryId, parentId, name, cap,
                 BffMoneyConverter.convert(spent, Currency.ARS, currencyView, secondary, fx),
                 pct, threshold, over);
     }

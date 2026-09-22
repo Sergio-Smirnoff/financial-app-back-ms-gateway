@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
@@ -124,5 +125,21 @@ class CategoriesBffTest {
         BudgetRow budgetedChild = rows.stream().filter(r -> r.categoryId() == 51L).findFirst().orElseThrow();
         assertThat(budgetedChild.cap()).isEqualByComparingTo("120000.00");
         assertThat(budgetedChild.name()).isEqualTo("Comida / Supermercado");
+    }
+
+    @Test
+    void subcategoryRowsCarryTheirParentIdAndRootRowsDoNot() {
+        when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("id", 5, "name", "Comida", "subcategories", List.of(
+                        Map.of("id", 51, "name", "Supermercado"))))));
+        when(finances.fetchBudgets(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.of("categoryId", 90, "categoryName", "Archivada", "amount", "1000.00"))));
+        when(finances.fetchBudgetPace(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        CategoriesBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        List<BudgetRow> rows = data.budgets().data();
+        assertThat(rows).extracting(BudgetRow::categoryId, BudgetRow::parentId)
+                .containsExactlyInAnyOrder(tuple(5L, null), tuple(51L, 5L), tuple(90L, null));
     }
 }
