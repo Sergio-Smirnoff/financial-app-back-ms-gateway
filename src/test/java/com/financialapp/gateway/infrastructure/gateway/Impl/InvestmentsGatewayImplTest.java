@@ -3,14 +3,19 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.currency.Currency;
+import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
 import com.financialapp.gateway.domain.model.currency.FxRateMode;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFunction;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -18,9 +23,13 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class InvestmentsGatewayImplTest {
 
@@ -115,5 +124,87 @@ class InvestmentsGatewayImplTest {
 
         List<Map<String, Object>> hits = gateway.searchPositions(new UserId(1L), "ypf").join();
         assertThat(hits).singleElement().extracting(m -> m.get("ticker")).isEqualTo("YPFD");
+    }
+
+    private static final LocalDate RATE_DAY = LocalDate.of(2026, 9, 28);
+
+    @ParameterizedTest
+    @CsvSource({"USD_MEP,MEP", "USD_CCL,CCL", "USD_OFICIAL,OFICIAL"})
+    void fxRatesAskForTheViewMsInvestmentsKnows(CurrencyView view, String downstreamView) {
+        AtomicReference<String> query = new AtomicReference<>();
+        InvestmentsGatewayImpl gateway = gatewayAnswering(request -> {
+            query.set(request.url().getQuery());
+            return okJson("{\"data\":[{\"date\":\"2026-09-28\",\"view\":\"" + downstreamView
+                    + "\",\"buy\":\"1180.00\",\"sell\":\"1190.00\",\"source\":\"dolarapi\"}]}");
+        });
+
+        List<FxRate> rates = gateway.fetchFxRates(RATE_DAY, RATE_DAY, view).join();
+
+        assertThat(query.get()).contains("view=" + downstreamView).doesNotContain("USD_");
+        assertThat(rates).extracting(FxRate::mode).containsExactly(FxRateMode.valueOf(downstreamView));
+    }
+
+    @Test
+    void aRejectedFxRequestFailsInsteadOfReportingNoRate() {
+        InvestmentsGatewayImpl gateway = gatewayAnswering(request -> Mono.just(ClientResponse.create(HttpStatus.BAD_REQUEST)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .body("{\"status\":400,\"code\":\"invalid_request\",\"message\":\"No enum constant\"}")
+                .build()));
+
+        assertThatThrownBy(() -> gateway.fetchFxRates(RATE_DAY, RATE_DAY, CurrencyView.USD_MEP).join())
+                .isInstanceOf(CompletionException.class)
+                .hasCauseInstanceOf(WebClientResponseException.BadRequest.class);
+    }
+
+    @Test
+    void theArsViewHasNoRateToAskFor() {
+        AtomicInteger calls = new AtomicInteger();
+        InvestmentsGatewayImpl gateway = gatewayReturning("{\"data\":[]}", calls);
+
+        assertThatThrownBy(() -> gateway.fetchFxRates(RATE_DAY, RATE_DAY, CurrencyView.ARS).join())
+                .hasCauseInstanceOf(IllegalArgumentException.class);
+        assertThat(calls.get()).isZero();
+    }
+
+    @Test
+    void aWeekendDayUsesTheLatestRateOnOrBeforeIt() {
+        LocalDate saturday = LocalDate.of(2026, 9, 26);
+        AtomicReference<String> query = new AtomicReference<>();
+        InvestmentsGatewayImpl gateway = gatewayAnswering(request -> {
+            query.set(request.url().getQuery());
+            return okJson("""
+                    {"data":[
+                      {"date":"2026-09-24","view":"MEP","buy":"1170.00","sell":"1180.00","source":"dolarapi"},
+                      {"date":"2026-09-25","view":"MEP","buy":"1180.00","sell":"1190.00","source":"dolarapi"}]}""");
+        });
+
+        Optional<FxRate> rate = gateway.fetchFxRate(CurrencyView.USD_MEP, saturday).join();
+
+        assertThat(query.get()).contains("from=2026-09-19").contains("to=2026-09-26").contains("view=MEP");
+        assertThat(rate).hasValueSatisfying(friday -> {
+            assertThat(friday.date()).isEqualTo(LocalDate.of(2026, 9, 25));
+            assertThat(friday.buy()).isEqualByComparingTo("1180.00");
+        });
+    }
+
+    @Test
+    void noRateInTheLookbackWindowIsNoRate() {
+        InvestmentsGatewayImpl gateway = gatewayAnswering(request -> okJson("{\"data\":[]}"));
+
+        assertThat(gateway.fetchFxRate(CurrencyView.USD_MEP, LocalDate.of(2026, 9, 26)).join()).isEmpty();
+    }
+
+    private InvestmentsGatewayImpl gatewayAnswering(ExchangeFunction exchange) {
+        WebClient webClient = WebClient.builder().exchangeFunction(exchange).build();
+        ServicesProperties services = new ServicesProperties();
+        services.setInvestmentsUrl("http://investments.test");
+        return new InvestmentsGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+    }
+
+    private static Mono<ClientResponse> okJson(String json) {
+        return Mono.just(ClientResponse.create(HttpStatus.OK)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .body(json)
+                .build());
     }
 }
