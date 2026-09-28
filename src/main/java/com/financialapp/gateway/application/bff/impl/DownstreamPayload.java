@@ -83,15 +83,20 @@ public final class DownstreamPayload {
     }
 
     public boolean flag(String key) {
-        Object raw = value(key).orElseThrow(() -> missing(key));
-        if (raw instanceof Boolean bool) {
-            return bool;
-        }
-        throw violation(source, key, "is not a boolean: " + raw);
+        return optionalFlag(key).orElseThrow(() -> missing(key));
     }
 
     public boolean flagOr(String key, boolean fallback) {
-        return value(key).map(Boolean.TRUE::equals).orElse(fallback);
+        return optionalFlag(key).orElse(fallback);
+    }
+
+    private Optional<Boolean> optionalFlag(String key) {
+        return value(key).map(raw -> {
+            if (raw instanceof Boolean bool) {
+                return bool;
+            }
+            throw violation(source, key, "is not a boolean: " + raw);
+        });
     }
 
     public LocalDate date(String key) {

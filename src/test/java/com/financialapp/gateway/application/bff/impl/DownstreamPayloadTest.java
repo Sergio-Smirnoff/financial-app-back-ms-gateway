@@ -89,6 +89,9 @@ class DownstreamPayloadTest {
                 .isInstanceOf(DownstreamContractViolationException.class);
         assertThat(payload(Map.of()).flagOr("colorForAmounts", true)).isTrue();
         assertThat(payload(Map.of("colorForAmounts", false)).flagOr("colorForAmounts", true)).isFalse();
+        assertThatThrownBy(() -> payload(Map.of("colorForAmounts", "yes")).flagOr("colorForAmounts", true))
+                .isInstanceOf(DownstreamContractViolationException.class)
+                .hasMessageContaining("is not a boolean");
     }
 
     @Test
