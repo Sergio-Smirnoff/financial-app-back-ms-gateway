@@ -4,6 +4,7 @@ import com.financialapp.gateway.application.bff.impl.GetTransactionDetailBffUseC
 import com.financialapp.gateway.application.bff.impl.GetTransactionsBffUseCaseImpl;
 import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.exception.ResourceNotFoundException;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
@@ -11,6 +12,7 @@ import com.financialapp.gateway.domain.gateway.UploadGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.AccountOption;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.CategoryOption;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.TransactionDirection;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.TransactionOrigin;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.TransactionRow;
 import com.financialapp.gateway.domain.model.bff.TransactionDetailBffData;
 import com.financialapp.gateway.domain.model.bff.TransactionQuery;
@@ -23,11 +25,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,17 +127,69 @@ class TransactionsBffTest {
         assertThat(list(0).page().status()).isEqualTo(SectionStatus.UNAVAILABLE);
     }
 
+    private GetTransactionDetailBffUseCaseImpl detailUseCase() {
+        return new GetTransactionDetailBffUseCaseImpl(finances, upload, banks, PageTimeoutBudget.fromMillis(3000));
+    }
+
     @Test
-    void execute_returnsOkDetailJoinedWithUploadRun() {
-        GetTransactionDetailBffUseCaseImpl detailUseCase = new GetTransactionDetailBffUseCaseImpl(finances, upload, PageTimeoutBudget.fromMillis(3000));
+    void detailReadsTheRealTransactionAndImportRunKeys() {
+        when(finances.fetchTransactionById(any(), eq(102L))).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.object("finances/transaction.json")));
+        when(upload.fetchRunByTransaction(any(), eq(102L))).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.object("upload/import-run.json")));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.list("banks/accounts.json")));
 
-        when(finances.fetchTransactionById(any(), eq(100L))).thenReturn(CompletableFuture.completedFuture(Map.of("id", 100L, "amount", 500)));
-        when(upload.fetchRunByTransaction(any(), eq(100L))).thenReturn(CompletableFuture.completedFuture(Map.of("runId", 50L)));
-
-        TransactionDetailBffData data = detailUseCase.execute(new UserId(1L), 100L).join();
+        TransactionDetailBffData data = detailUseCase().execute(new UserId(1L), 102L).join();
 
         assertThat(data.detail().status()).isEqualTo(SectionStatus.OK);
-        assertThat(data.detail().data().transaction().id()).isEqualTo(100L);
-        assertThat(data.detail().data().origin().runId()).isEqualTo(50L);
+        TransactionRow transaction = data.detail().data().transaction();
+        assertThat(transaction.id()).isEqualTo(102L);
+        assertThat(transaction.accountCbu()).isEqualTo("0170099200000000000017");
+        assertThat(transaction.accountAlias()).isEqualTo("demo.checking");
+        assertThat(transaction.method()).isEqualTo("CREDIT_CARD");
+        assertThat(transaction.direction()).isEqualTo(TransactionDirection.OUT);
+        TransactionOrigin origin = data.detail().data().origin();
+        assertThat(origin.runId()).isEqualTo(50L);
+        assertThat(origin.importedAt()).isEqualTo(Instant.parse("2026-09-12T15:04:05Z"));
+        assertThat(origin.reconciled()).isTrue();
+        assertThat(origin.fileName()).isNull();
+    }
+
+    @Test
+    void aTransactionWithoutAnImportRunHasNoOrigin() {
+        when(finances.fetchTransactionById(any(), eq(102L))).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.object("finances/transaction.json")));
+        when(upload.fetchRunByTransaction(any(), eq(102L))).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        TransactionDetailBffData data = detailUseCase().execute(new UserId(1L), 102L).join();
+
+        assertThat(data.detail().status()).isEqualTo(SectionStatus.OK);
+        assertThat(data.detail().data().origin()).isNull();
+    }
+
+    @Test
+    void aMissingTransactionFailsWithNotFoundInsteadOfAnEmptyDetail() {
+        when(finances.fetchTransactionById(any(), eq(999L)))
+                .thenReturn(CompletableFuture.failedFuture(new ResourceNotFoundException("Transaction", 999L)));
+        when(upload.fetchRunByTransaction(any(), eq(999L))).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        assertThatThrownBy(() -> detailUseCase().execute(new UserId(1L), 999L).join())
+                .isInstanceOf(CompletionException.class)
+                .hasCauseInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void aFinancesOutageDegradesTheDetailSection() {
+        when(finances.fetchTransactionById(any(), eq(5L)))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("finances down")));
+        when(upload.fetchRunByTransaction(any(), eq(5L))).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        TransactionDetailBffData data = detailUseCase().execute(new UserId(1L), 5L).join();
+
+        assertThat(data.detail().status()).isEqualTo(SectionStatus.UNAVAILABLE);
     }
 }
