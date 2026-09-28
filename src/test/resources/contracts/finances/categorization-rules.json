@@ -1,0 +1,3 @@
+[
+  { "id": 5, "matchType": "CONTAINS", "pattern": "COTO", "categoryId": 1, "categoryName": "Supermercado", "matchCount": 12, "createdAt": "2026-08-01T10:00:00" }
+]

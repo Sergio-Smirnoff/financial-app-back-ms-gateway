@@ -1,0 +1,20 @@
+[
+  {
+    "id": 50,
+    "bankNumber": "017",
+    "accountCbu": "0170099200000000000017",
+    "periodFrom": "2026-09-11",
+    "periodTo": "2026-09-12",
+    "status": "COMPLETED",
+    "importedCount": 2,
+    "skippedCount": 0,
+    "reconciliation": {
+      "statementBalance": { "amount": 403308.43, "currency": "ARS" },
+      "calculatedBalance": { "amount": 403308.43, "currency": "ARS" },
+      "matches": true,
+      "discrepancy": { "amount": 0, "currency": "ARS" }
+    },
+    "createdAt": "2026-09-12T15:04:05",
+    "canUndo": true
+  }
+]
