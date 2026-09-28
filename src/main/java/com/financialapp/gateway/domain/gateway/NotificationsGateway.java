@@ -14,5 +14,5 @@ public interface NotificationsGateway {
 
     CompletableFuture<List<Map<String, Object>>> fetchNotificationPreferences(UserId userId);
 
-    CompletableFuture<List<Map<String, Object>>> fetchLatestByCategory(UserId userId, String category);
+    CompletableFuture<List<Map<String, Object>>> fetchLatestOfType(UserId userId, String type);
 }

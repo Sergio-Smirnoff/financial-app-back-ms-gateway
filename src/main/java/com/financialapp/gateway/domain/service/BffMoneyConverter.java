@@ -1,5 +1,7 @@
 package com.financialapp.gateway.domain.service;
 
+import com.financialapp.gateway.domain.exception.UnconvertibleAmountException;
+import com.financialapp.gateway.domain.model.bff.CurrencyAmounts;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
@@ -7,6 +9,7 @@ import com.financialapp.gateway.domain.model.currency.FxRate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Map;
 import java.util.Optional;
 
 public class BffMoneyConverter {
@@ -52,5 +55,22 @@ public class BffMoneyConverter {
         }
 
         return new MoneyFigure(amount, sourceCurrency, null);
+    }
+
+    public static BigDecimal toArs(CurrencyAmounts amounts, Optional<FxRate> usdRate) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<Currency, BigDecimal> entry : amounts.amounts().entrySet()) {
+            if (entry.getValue().signum() == 0) {
+                continue;
+            }
+            Currency currency = entry.getKey();
+            boolean arsOrUsd = currency.equals(Currency.ARS) || currency.equals(Currency.USD);
+            MoneyFigure inArs = convert(entry.getValue(), currency, CurrencyView.ARS, "none", usdRate);
+            if (!arsOrUsd || !inArs.currency().equals(Currency.ARS)) {
+                throw new UnconvertibleAmountException(currency);
+            }
+            total = total.add(inArs.amount());
+        }
+        return total;
     }
 }

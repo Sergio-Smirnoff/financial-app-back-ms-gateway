@@ -5,7 +5,8 @@ import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
 import com.financialapp.gateway.domain.model.bff.InvestmentsBffData;
-import com.financialapp.gateway.domain.model.bff.MoneyFigure;
+import com.financialapp.gateway.domain.model.bff.PortfolioSummary;
+import com.financialapp.gateway.domain.model.bff.PortfolioValuePoint;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.Section;
@@ -13,15 +14,16 @@ import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
+import com.financialapp.gateway.domain.service.Percentages;
 import com.financialapp.gateway.domain.usecase.bff.GetInvestmentsBffUseCase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,6 +32,12 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
+
+    private static final String MARKET_SOURCE = "ms-investments market panel";
+    private static final String HOLDINGS_SOURCE = "ms-investments portfolio holdings";
+    private static final String ALERTS_SOURCE = "ms-notifications latest";
+    private static final String THRESHOLD_ALERT_TYPE = "INVESTMENT_THRESHOLD";
+    private static final int RECENT_OPERATIONS = 10;
 
     private final InvestmentsGateway investments;
     private final NotificationsGateway notifications;
@@ -58,30 +66,34 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
         CompletableFuture<Optional<FxRate>> fxRateFuture = currencyView != CurrencyView.ARS ?
                 investments.fetchFxRate(currencyView, today) : CompletableFuture.completedFuture(Optional.empty());
 
-        // Shared deduplicated futures
-        CompletableFuture<Map<String, Object>> portfolioFuture = investments.fetchPortfolioSummary(userId);
-        CompletableFuture<List<Map<String, Object>>> holdingsFuture = investments.fetchHoldings(userId);
+        CompletableFuture<PortfolioSummary> summaryFuture = investments.fetchPortfolioSummary(userId)
+                .thenApply(PortfolioFigures::summary);
+        CompletableFuture<Optional<FxRate>> summaryRateFuture = summaryFuture.thenCompose(summary ->
+                PortfolioFigures.usdRate(summary.needsUsdRate(), currencyView, fxRateFuture, investments, today));
+        CompletableFuture<List<PortfolioValuePoint>> evolutionFuture = investments.fetchPortfolioEvolution(userId)
+                .thenApply(PortfolioFigures::evolution);
+        CompletableFuture<Optional<FxRate>> evolutionRateFuture = evolutionFuture.thenCompose(points ->
+                PortfolioFigures.usdRate(points.stream().anyMatch(point -> point.marketValue().needsUsdRate()),
+                        currencyView, fxRateFuture, investments, today));
+        CompletableFuture<List<DownstreamPayload>> holdingsFuture = investments.fetchHoldings(userId)
+                .thenApply(rows -> DownstreamPayload.rows(HOLDINGS_SOURCE, rows));
 
         CompletableFuture<Section<List<MarketQuote>>> marketStripSec = applyBudget(
                 investments.fetchMarketPanel()
                         .thenApply(panel -> {
-                            // The panel's strip data lives in "indices" ({code,value,variation});
-                            // "quotes" is the per-ticker price panel and has no code field.
-                            Object indicesObj = panel.get("indices");
-                            List<Map<String, Object>> list = indicesObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
-                            Instant obs = clock.instant();
-                            return list.stream()
-                                    .filter(q -> !String.valueOf(q.getOrDefault("code", "")).isBlank())
-                                    .map(q -> {
-                                        String code = String.valueOf(q.getOrDefault("code", ""));
-                                        BigDecimal val = parseDecimal(q.get("value"));
-                                        BigDecimal var = parseDecimal(q.get("variation"));
-                                        return new MarketQuote(code, indexLabel(code), val, var, indexUnit(code), obs);
-                                    }).toList();
+                            Instant observed = clock.instant();
+                            return new DownstreamPayload(MARKET_SOURCE, panel).list("indices").stream()
+                                    .filter(index -> !index.textOr("code", "").isBlank())
+                                    .map(index -> {
+                                        String code = index.text("code");
+                                        return new MarketQuote(code, indexLabel(code),
+                                                index.decimalOrZero("value"), index.decimalOrZero("variation"),
+                                                indexUnit(code), observed);
+                                    })
+                                    .toList();
                         })
                         .handle((quotes, ex) -> {
                             ObservedAt stamp = ObservedAt.now(clock);
-                            // An offline market upstream must degrade the section, not report OK with placeholder rows.
                             return ex == null && !quotes.isEmpty()
                                     ? Section.ok(quotes, stamp)
                                     : Section.unavailable(List.<MarketQuote>of(), stamp);
@@ -90,109 +102,87 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
 
         CompletableFuture<Section<InvestmentsKpis>> kpisSec = applyBudget(
                 Section.guard(
-                        portfolioFuture.thenCombine(fxRateFuture, (pf, fx) -> {
-                            BigDecimal marketVal = parseDecimal(pf.get("totalMarketValue"));
-                            BigDecimal cost = parseDecimal(pf.get("totalCost"));
-                            BigDecimal pnl = parseDecimal(pf.get("totalPnl"));
-                            BigDecimal pnlPct = parseDecimal(pf.get("totalPnlPct"));
-
+                        summaryFuture.thenCombine(summaryRateFuture, (summary, rate) -> {
+                            BigDecimal marketValue = BffMoneyConverter.toArs(summary.marketValue(), rate);
+                            BigDecimal cost = BffMoneyConverter.toArs(summary.cost(), rate);
+                            BigDecimal pnl = marketValue.subtract(cost);
                             return new InvestmentsKpis(
-                                    BffMoneyConverter.convert(marketVal, Currency.ARS, currencyView, secondary, fx),
-                                    BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, fx),
-                                    BffMoneyConverter.convert(pnl, Currency.ARS, currencyView, secondary, fx),
-                                    pnlPct
-                            );
+                                    BffMoneyConverter.convert(marketValue, Currency.ARS, currencyView, secondary, rate),
+                                    BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, rate),
+                                    BffMoneyConverter.convert(pnl, Currency.ARS, currencyView, secondary, rate),
+                                    Percentages.percentOf(pnl, cost));
                         }),
                         InvestmentsKpis.empty(), clock),
                 InvestmentsKpis.empty());
 
         CompletableFuture<Section<List<EvolutionPoint>>> evolutionSec = applyBudget(
                 Section.guard(
-                        investments.fetchPortfolioEvolution(userId)
-                                .thenCombine(fxRateFuture, (list, fx) -> list.stream().map(e -> {
-                                    LocalDate date = parseDate(e.get("date"));
-                                    BigDecimal mv = parseDecimal(e.get("marketValue"));
-                                    BigDecimal cost = parseDecimal(e.get("cost"));
-                                    return new EvolutionPoint(date,
-                                            BffMoneyConverter.convert(mv, Currency.ARS, currencyView, secondary, fx),
-                                            BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, fx));
-                                }).toList()),
+                        evolutionFuture.thenCombine(evolutionRateFuture, (points, rate) -> points.stream()
+                                .map(point -> new EvolutionPoint(point.date(),
+                                        BffMoneyConverter.convert(BffMoneyConverter.toArs(point.marketValue(), rate),
+                                                Currency.ARS, currencyView, secondary, rate),
+                                        null))
+                                .toList()),
                         List.of(), clock),
                 List.of());
 
         CompletableFuture<Section<List<PositionRow>>> positionsSec = applyBudget(
                 Section.guard(
-                        holdingsFuture.thenCombine(fxRateFuture, (list, fx) -> list.stream().map(h -> {
-                            Long holdingId = parseLong(h.get("id"));
-                            String ticker = String.valueOf(h.getOrDefault("ticker", ""));
-                            String name = String.valueOf(h.getOrDefault("name", ""));
-                            BigDecimal qty = parseDecimal(h.get("quantity"));
-                            BigDecimal avgCost = parseDecimal(h.get("avgPurchasePrice"));
-                            BigDecimal price = parseDecimal(h.get("currentPrice"));
-                            BigDecimal mv = parseDecimal(h.get("currentValue"));
-                            BigDecimal pnl = parseDecimal(h.get("plAmount"));
-                            BigDecimal pnlPct = parseDecimal(h.get("plPercent"));
-                            String bankNumber = String.valueOf(h.getOrDefault("bankNumber", ""));
-                            Currency curr = Currency.of(String.valueOf(h.getOrDefault("currency", "ARS")));
-
+                        holdingsFuture.thenCombine(fxRateFuture, (holdings, fx) -> holdings.stream().map(holding -> {
+                            Currency currency = Currency.of(holding.text("currency"));
                             return new PositionRow(
-                                    holdingId, ticker, name, qty,
-                                    BffMoneyConverter.convert(avgCost, curr, currencyView, secondary, fx),
-                                    BffMoneyConverter.convert(price, curr, currencyView, secondary, fx),
-                                    BffMoneyConverter.convert(mv, curr, currencyView, secondary, fx),
-                                    BffMoneyConverter.convert(pnl, curr, currencyView, secondary, fx),
-                                    pnlPct, bankNumber
-                            );
+                                    holding.longValue("id"), holding.text("ticker"), holding.text("name"),
+                                    holding.decimal("quantity"),
+                                    BffMoneyConverter.convert(holding.decimal("avgPurchasePrice"), currency, currencyView, secondary, fx),
+                                    BffMoneyConverter.convert(holding.decimal("currentPrice"), currency, currencyView, secondary, fx),
+                                    BffMoneyConverter.convert(holding.decimal("currentValue"), currency, currencyView, secondary, fx),
+                                    BffMoneyConverter.convert(holding.decimal("plAmount"), currency, currencyView, secondary, fx),
+                                    holding.decimal("plPercent"), holding.text("bankNumber"));
                         }).toList()),
                         List.of(), clock),
                 List.of());
 
         CompletableFuture<Section<List<CompositionSlice>>> compositionSec = applyBudget(
                 Section.guard(
-                        portfolioFuture.thenCombine(fxRateFuture, (pf, fx) -> {
-                            BigDecimal totalMv = parseDecimal(pf.get("totalMarketValue"));
-                            Object compObj = pf.get("composition");
-                            List<Map<String, Object>> slices = compObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
-                            return slices.stream().map(s -> {
-                                String label = String.valueOf(s.getOrDefault("assetClass", s.getOrDefault("label", "")));
-                                BigDecimal amt = parseDecimal(s.get("amount"));
-                                BigDecimal pct = totalMv.compareTo(BigDecimal.ZERO) > 0 ? amt.divide(totalMv, 4, RoundingMode.HALF_EVEN).multiply(new BigDecimal("100")) : BigDecimal.ZERO;
-                                return new CompositionSlice(label, BffMoneyConverter.convert(amt, Currency.ARS, currencyView, secondary, fx), pct);
-                            }).toList();
+                        summaryFuture.thenCombine(summaryRateFuture, (summary, rate) -> {
+                            BigDecimal total = BffMoneyConverter.toArs(summary.marketValue(), rate);
+                            return summary.marketValueByAssetType().entrySet().stream()
+                                    .sorted(Map.Entry.comparingByKey())
+                                    .map(slice -> {
+                                        BigDecimal amount = BffMoneyConverter.toArs(slice.getValue(), rate);
+                                        return new CompositionSlice(slice.getKey(),
+                                                BffMoneyConverter.convert(amount, Currency.ARS, currencyView, secondary, rate),
+                                                Percentages.percentOf(amount, total));
+                                    })
+                                    .toList();
                         }),
                         List.of(), clock),
                 List.of());
 
         CompletableFuture<Section<List<OperationRow>>> recentOperationsSec = applyBudget(
                 Section.guard(
-                        holdingsFuture.thenCombine(fxRateFuture, (list, fx) -> list.stream()
-                                .map(h -> {
-                                    Long holdingId = parseLong(h.get("id"));
-                                    String ticker = String.valueOf(h.getOrDefault("ticker", ""));
-                                    BigDecimal qty = parseDecimal(h.get("quantity"));
-                                    OperationKind kind = qty.compareTo(BigDecimal.ZERO) >= 0 ? OperationKind.BUY : OperationKind.SELL;
-                                    LocalDate date = parseDate(h.get("createdAt"));
-                                    BigDecimal amt = parseDecimal(h.get("currentValue"));
-                                    Currency curr = Currency.of(String.valueOf(h.getOrDefault("currency", "ARS")));
-                                    return new OperationRow(holdingId, ticker, kind, date, qty.abs(), BffMoneyConverter.convert(amt, curr, currencyView, secondary, fx));
+                        holdingsFuture.thenCombine(fxRateFuture, (holdings, fx) -> holdings.stream()
+                                .map(holding -> {
+                                    BigDecimal quantity = holding.decimal("quantity");
+                                    OperationKind kind = quantity.signum() >= 0 ? OperationKind.BUY : OperationKind.SELL;
+                                    Currency currency = Currency.of(holding.text("currency"));
+                                    return new OperationRow(holding.longValue("id"), holding.text("ticker"), kind,
+                                            holding.date("createdAt"), quantity.abs(),
+                                            BffMoneyConverter.convert(holding.decimal("currentValue"), currency, currencyView, secondary, fx));
                                 })
-                                .sorted((o1, o2) -> o2.date().compareTo(o1.date()))
-                                .limit(10)
+                                .sorted(Comparator.comparing(OperationRow::date).reversed())
+                                .limit(RECENT_OPERATIONS)
                                 .toList()),
                         List.of(), clock),
                 List.of());
 
         CompletableFuture<Section<List<AlertRow>>> alertsSec = applyBudget(
                 Section.guard(
-                        notifications.fetchLatestByCategory(userId, "PORTFOLIO_ALERTS")
-                                .thenApply(list -> list.stream().map(n -> {
-                                    Long id = parseLong(n.get("id"));
-                                    String title = String.valueOf(n.getOrDefault("title", ""));
-                                    String message = String.valueOf(n.getOrDefault("message", ""));
-                                    Instant createdAt = parseInstant(n.get("createdAt"));
-                                    Boolean read = Boolean.TRUE.equals(n.get("read"));
-                                    return new AlertRow(id, title, message, createdAt, read);
-                                }).toList()),
+                        notifications.fetchLatestOfType(userId, THRESHOLD_ALERT_TYPE)
+                                .thenApply(rows -> DownstreamPayload.rows(ALERTS_SOURCE, rows).stream()
+                                        .map(alert -> new AlertRow(alert.longValue("id"), alert.text("title"),
+                                                alert.text("message"), alert.instant("createdAt"), alert.flag("read")))
+                                        .toList()),
                         List.of(), clock),
                 List.of());
 
@@ -220,25 +210,5 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
 
     private static MarketQuoteUnit indexUnit(String code) {
         return "RIESGO_PAIS".equals(code) ? MarketQuoteUnit.POINTS : MarketQuoteUnit.PERCENT;
-    }
-
-    private static BigDecimal parseDecimal(Object val) {
-        if (val == null) return BigDecimal.ZERO;
-        try { return new BigDecimal(val.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
-    }
-
-    private static Long parseLong(Object val) {
-        if (val == null) return null;
-        try { return Long.parseLong(val.toString()); } catch (Exception e) { return null; }
-    }
-
-    private static LocalDate parseDate(Object val) {
-        if (val == null) return LocalDate.now();
-        try { return LocalDate.parse(val.toString()); } catch (Exception e) { return LocalDate.now(); }
-    }
-
-    private static Instant parseInstant(Object val) {
-        if (val == null) return Instant.now();
-        try { return Instant.parse(val.toString()); } catch (Exception e) { return Instant.now(); }
     }
 }

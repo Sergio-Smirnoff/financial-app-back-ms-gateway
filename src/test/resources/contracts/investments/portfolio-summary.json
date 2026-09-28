@@ -1,0 +1,15 @@
+{
+  "byCurrency": [
+    {
+      "currency": "ARS",
+      "totalValue": "10661892.60",
+      "totalCost": "10175878.31",
+      "totalPl": "486014.29",
+      "plPercent": "4.7800",
+      "breakdown": [
+        { "assetType": "BOND", "totalValue": "904779.00", "percentage": "8.4900" },
+        { "assetType": "CEDEAR", "totalValue": "9757113.60", "percentage": "91.5100" }
+      ]
+    }
+  ]
+}
