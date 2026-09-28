@@ -2,6 +2,7 @@ package com.financialapp.gateway.web.error;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.financialapp.commons.core.error.DomainException;
 import com.financialapp.commons.core.response.ApiResponse;
 import com.financialapp.gateway.domain.exception.DomainErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -44,6 +46,22 @@ public class GlobalExceptionHandler {
         }
         return Mono.just(ResponseEntity.status(status)
                 .body(ApiResponse.failure(status, code, errorMessage, null)));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public Mono<ResponseEntity<ApiResponse<Void>>> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatus resolved = HttpStatus.resolve(ex.getStatusCode().value());
+        HttpStatus status = resolved != null ? resolved : HttpStatus.INTERNAL_SERVER_ERROR;
+        String message = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+        return Mono.just(ResponseEntity.status(status)
+                .body(ApiResponse.failure(status, StatusErrorCodes.codeFor(status).code(), message, null)));
+    }
+
+    @ExceptionHandler(DomainException.class)
+    public Mono<ResponseEntity<ApiResponse<Void>>> handleDomain(DomainException ex) {
+        HttpStatus status = StatusErrorCodes.statusFor(ex.getError().category());
+        return Mono.just(ResponseEntity.status(status)
+                .body(ApiResponse.failure(status, ex.getError().code(), ex.getMessage(), null)));
     }
 
     @ExceptionHandler(Exception.class)
