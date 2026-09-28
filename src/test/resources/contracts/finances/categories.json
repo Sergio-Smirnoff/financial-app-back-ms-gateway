@@ -1,0 +1,4 @@
+[
+  { "id": 1, "name": "Supermercado", "subcategories": [ { "id": 11, "name": "Mayorista" } ] },
+  { "id": 2, "name": "Transporte", "subcategories": [] }
+]

@@ -5,7 +5,7 @@ import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
-import com.financialapp.gateway.domain.model.bff.MoneyFigure;
+import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.bff.TransactionsBffData;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
@@ -14,7 +14,6 @@ import com.financialapp.gateway.domain.model.composition.Section;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
-import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
 import com.financialapp.gateway.domain.usecase.bff.GetTransactionsBffUseCase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +30,12 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase {
+
+    private static final String PAGE_SOURCE = "ms-finances transactions page";
+    private static final String ACCOUNTS_SOURCE = "ms-banks accounts";
+    private static final String UNCATEGORISED_SOURCE = "ms-finances uncategorised count";
+    private static final List<String> PAYMENT_METHODS =
+            List.of("DEBIT_CARD", "CREDIT_CARD", "TRANSFER", "AUTOMATIC_DEBIT", "DEPOSIT", "OTHER");
 
     private final FinancesGateway finances;
     private final BanksGateway banks;
@@ -70,6 +75,9 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
         CompletableFuture<Map<String, Object>> summaryWindowFuture = finances.fetchTransactions(
                 userId,
                 new TransactionQuery(0, 1, query.categories(), query.accounts(), query.method(), query.query(), summaryFrom, summaryTo));
+        CompletableFuture<Map<String, Object>> pageFuture = finances.fetchTransactions(userId, query);
+        CompletableFuture<List<DownstreamPayload>> accountsFuture = banks.fetchAccounts(userId)
+                .thenApply(rows -> DownstreamPayload.rows(ACCOUNTS_SOURCE, rows));
 
         CompletableFuture<Section<TransactionsSummary>> summarySec = applyBudget(
                 Section.guard(
@@ -77,55 +85,53 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
                                 .thenApply(v -> {
                                     List<CurrencySummary> summaries = summaryTotalsFuture.join();
                                     Optional<FxRate> fx = fxRateFuture.join();
-                                    BigDecimal income = summaries.stream().map(s -> parseDecimal(s.totalIncome())).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal expense = summaries.stream().map(s -> parseDecimal(s.totalExpense())).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal net = income.subtract(expense);
-                                    long count = parseLongVal(summaryWindowFuture.join().get("totalElements"), 0L);
+                                    BigDecimal income = summaries.stream().map(s -> DownstreamPayload.amountOrZero(s.totalIncome())).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal expense = summaries.stream().map(s -> DownstreamPayload.amountOrZero(s.totalExpense())).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    long count = new DownstreamPayload(PAGE_SOURCE, summaryWindowFuture.join())
+                                            .optionalLong("totalElements").orElse(0L);
                                     return new TransactionsSummary(
                                             BffMoneyConverter.convert(income, Currency.ARS, currencyView, secondary, fx),
                                             BffMoneyConverter.convert(expense, Currency.ARS, currencyView, secondary, fx),
-                                            BffMoneyConverter.convert(net, Currency.ARS, currencyView, secondary, fx),
-                                            count
-                                    );
+                                            BffMoneyConverter.convert(income.subtract(expense), Currency.ARS, currencyView, secondary, fx),
+                                            count);
                                 }),
                         TransactionsSummary.empty(), clock),
                 TransactionsSummary.empty());
 
         CompletableFuture<Section<TransactionsPage>> pageSec = applyBudget(
                 Section.guard(
-                        finances.fetchTransactions(userId, query)
-                                .thenCombine(fxRateFuture, (res, fx) -> {
-                                    Object contentObj = res.get("content");
-                                    List<Map<String, Object>> contentList = contentObj instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
-                                    List<TransactionRow> rows = contentList.stream().map(r -> mapTransactionRow(r, currencyView, secondary, fx)).toList();
-                                    long totalEl = parseLongVal(res.get("totalElements"), rows.size());
-                                    int totalP = (int) Math.ceil((double) totalEl / query.size());
-                                    return new TransactionsPage(rows, query.page(), query.size(), totalEl, Math.max(totalP, 1));
+                        CompletableFuture.allOf(pageFuture, accountsFuture, fxRateFuture)
+                                .thenApply(v -> {
+                                    DownstreamPayload page = new DownstreamPayload(PAGE_SOURCE, pageFuture.join());
+                                    Map<String, String> labels = AccountLabels.byCbu(accountsFuture.join());
+                                    Optional<FxRate> fx = fxRateFuture.join();
+                                    List<TransactionRow> rows = page.list("content").stream()
+                                            .map(transaction -> TransactionRows.from(transaction, labels, figure ->
+                                                    BffMoneyConverter.convert(figure.amount(), figure.currency(), currencyView, secondary, fx)))
+                                            .toList();
+                                    long totalElements = page.optionalLong("totalElements").orElse((long) rows.size());
+                                    int totalPages = (int) Math.ceil((double) totalElements / query.size());
+                                    return new TransactionsPage(rows, query.page(), query.size(), totalElements, Math.max(totalPages, 1));
                                 }),
                         TransactionsPage.empty(), clock),
                 TransactionsPage.empty());
 
         CompletableFuture<Section<FilterOptions>> filterOptionsSec = applyBudget(
                 Section.guard(
-                        banks.fetchAccounts(userId)
-                                .thenCombine(finances.fetchCategorizationRules(userId), (accList, rules) -> {
-                                    List<AccountOption> accOpts = accList.stream().map(a ->
-                                            new AccountOption(String.valueOf(a.getOrDefault("cbu", "")), String.valueOf(a.getOrDefault("alias", "")))
-                                    ).toList();
-                                    List<CategoryOption> catOpts = rules.stream().map(r ->
-                                            new CategoryOption(parseLong(r.get("categoryId")), String.valueOf(r.getOrDefault("categoryName", "")))
-                                    ).filter(c -> c.id() != null).distinct().toList();
-                                    // Mirror of ms-finances PaymentMethod — there is no discovery endpoint for it.
-                                    List<String> methods = List.of("DEBIT_CARD", "CREDIT_CARD", "TRANSFER", "AUTOMATIC_DEBIT", "DEPOSIT", "OTHER");
-                                    return new FilterOptions(accOpts, catOpts, methods);
-                                }),
+                        accountsFuture.thenCombine(finances.fetchCategories(userId), (accounts, categories) -> new FilterOptions(
+                                accounts.stream()
+                                        .map(account -> new AccountOption(account.textOr("cbu", ""), AccountLabels.of(account)))
+                                        .toList(),
+                                CategoryTree.options(categories),
+                                PAYMENT_METHODS)),
                         FilterOptions.empty(), clock),
                 FilterOptions.empty());
 
         CompletableFuture<Section<UncategorisedSummary>> uncategorisedSec = applyBudget(
                 Section.guard(
                         finances.fetchUncategorisedCount(userId)
-                                .thenApply(map -> new UncategorisedSummary(parseLongVal(map.get("count"), 0L))),
+                                .thenApply(count -> new UncategorisedSummary(
+                                        new DownstreamPayload(UNCATEGORISED_SOURCE, count).optionalLong("count").orElse(0L))),
                         new UncategorisedSummary(0L), clock),
                 new UncategorisedSummary(0L));
 
@@ -134,51 +140,10 @@ public class GetTransactionsBffUseCaseImpl implements GetTransactionsBffUseCase 
                         summarySec.join(), pageSec.join(), filterOptionsSec.join(), uncategorisedSec.join()));
     }
 
-    private TransactionRow mapTransactionRow(Map<String, Object> r, CurrencyView currencyView, String secondary, Optional<FxRate> fx) {
-        Long id = parseLong(r.get("id"));
-        LocalDate date = parseDate(r.get("date"));
-        String desc = String.valueOf(r.getOrDefault("description", ""));
-        String cbu = String.valueOf(r.getOrDefault("fromCbu", ""));
-        String alias = String.valueOf(r.getOrDefault("accountAlias", ""));
-        Long catId = parseLong(r.get("categoryId"));
-        String catName = String.valueOf(r.getOrDefault("categoryName", ""));
-        String method = String.valueOf(r.getOrDefault("paymentMethod", ""));
-        String note = String.valueOf(r.getOrDefault("note", ""));
-        BigDecimal amount = parseDecimal(r.get("amount"));
-        String kindStr = String.valueOf(r.getOrDefault("kind", "EXPENSE"));
-        TransactionDirection dir = "INCOME".equalsIgnoreCase(kindStr) ? TransactionDirection.IN : TransactionDirection.OUT;
-
-        String currStr = String.valueOf(r.getOrDefault("currency", "ARS"));
-        Currency sourceCurrency = Currency.of(currStr);
-        MoneyFigure figure = BffMoneyConverter.convert(amount, sourceCurrency, currencyView, secondary, fx);
-
-        return new TransactionRow(id, date, desc, cbu, alias, catId, catName, method, note, figure, dir);
-    }
-
     private <T> CompletableFuture<Section<T>> applyBudget(CompletableFuture<Section<T>> sectionFuture, T fallback) {
         return sectionFuture.completeOnTimeout(
                 Section.unavailable(fallback, ObservedAt.now(clock)),
                 budget.total().toMillis(),
                 TimeUnit.MILLISECONDS);
-    }
-
-    private static BigDecimal parseDecimal(Object val) {
-        if (val == null) return BigDecimal.ZERO;
-        try { return new BigDecimal(val.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
-    }
-
-    private static Long parseLong(Object val) {
-        if (val == null) return null;
-        try { return Long.parseLong(val.toString()); } catch (Exception e) { return null; }
-    }
-
-    private static long parseLongVal(Object val, long fallback) {
-        if (val == null) return fallback;
-        try { return Long.parseLong(val.toString()); } catch (Exception e) { return fallback; }
-    }
-
-    private static LocalDate parseDate(Object val) {
-        if (val == null) return LocalDate.now();
-        try { return LocalDate.parse(val.toString()); } catch (Exception e) { return LocalDate.now(); }
     }
 }
