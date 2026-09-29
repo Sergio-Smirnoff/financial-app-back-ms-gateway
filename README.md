@@ -35,7 +35,7 @@ src/main/java/com/financialapp/gateway/
 │   │   ├── InvestmentsGateway.java   # port — portfolio, holdings, evolution, market panel, fx rates, fees
 │   │   ├── NotificationsGateway.java # port — unread count, latest, fetchLatestOfType (client-side type filter), notification preferences
 │   │   ├── UploadGateway.java        # port — import history, run details
-│   │   ├── UsersGateway.java         # port — profile, sessions, preferences
+│   │   ├── UsersGateway.java         # port — profile, sessions (forwards the caller's access_token), preferences
 │   │   └── TokenVerificationGateway.java
 │   ├── model/
 │   │   ├── admission/
