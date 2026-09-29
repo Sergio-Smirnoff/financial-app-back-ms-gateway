@@ -132,7 +132,6 @@ public class GetSettingsBffUseCaseImpl implements GetSettingsBffUseCase {
                                         .map(session -> new SessionRow(
                                                 session.text("id"),
                                                 session.textOr("device", ""),
-                                                null,
                                                 session.instant("lastSeenAt"),
                                                 session.flagOr("current", false)))
                                         .toList()),

@@ -148,7 +148,7 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                                                 rule.text("pattern"),
                                                 rule.optionalLong("categoryId").orElse(null),
                                                 rule.textOr("categoryName", ""),
-                                                null))
+                                                Math.toIntExact(rule.longValue("matchCount"))))
                                         .toList()),
                         List.of(), clock),
                 List.of());

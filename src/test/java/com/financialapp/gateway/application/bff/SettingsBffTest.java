@@ -114,7 +114,6 @@ class SettingsBffTest {
         assertThat(session.id()).isEqualTo("12");
         assertThat(session.device()).isEqualTo("Firefox en Linux");
         assertThat(session.lastSeenAt()).isEqualTo(Instant.parse("2026-09-28T11:15:00Z"));
-        assertThat(session.ip()).isNull();
         assertThat(session.current()).isFalse();
     }
 }
