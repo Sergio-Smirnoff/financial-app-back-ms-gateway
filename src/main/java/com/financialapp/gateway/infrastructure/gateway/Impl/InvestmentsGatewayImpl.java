@@ -83,7 +83,7 @@ public class InvestmentsGatewayImpl implements InvestmentsGateway {
     @Override
     public CompletableFuture<List<Currency>> holdingCurrencies(Long userId) {
         return webClient.get()
-                .uri(investmentsUrl + "/api/v1/investments/holdings")
+                .uri(investmentsUrl + "/api/v1/investments/portfolio/holdings")
                 .header("X-User-Id", userId.toString())
                 .retrieve()
                 .bodyToMono(HOLDINGS_TYPE)

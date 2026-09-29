@@ -194,6 +194,21 @@ class InvestmentsGatewayImplTest {
         assertThat(gateway.fetchFxRate(CurrencyView.USD_MEP, LocalDate.of(2026, 9, 26)).join()).isEmpty();
     }
 
+    @Test
+    void holdingCurrenciesReadThePortfolioHoldingsList() {
+        AtomicReference<String> path = new AtomicReference<>();
+        InvestmentsGatewayImpl gateway = gatewayAnswering(request -> {
+            path.set(request.url().getPath());
+            return okJson("{\"data\":[{\"id\":7,\"ticker\":\"AO29\",\"currency\":\"ARS\"},"
+                    + "{\"id\":8,\"ticker\":\"SPY\",\"currency\":\"USD\"}]}");
+        });
+
+        List<Currency> currencies = gateway.holdingCurrencies(42L).join();
+
+        assertThat(path.get()).isEqualTo("/api/v1/investments/portfolio/holdings");
+        assertThat(currencies).containsExactly(Currency.ARS, Currency.USD);
+    }
+
     private InvestmentsGatewayImpl gatewayAnswering(ExchangeFunction exchange) {
         WebClient webClient = WebClient.builder().exchangeFunction(exchange).build();
         ServicesProperties services = new ServicesProperties();
