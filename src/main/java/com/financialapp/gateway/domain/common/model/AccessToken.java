@@ -6,4 +6,9 @@ public record AccessToken(String value) {
             throw new IllegalArgumentException("access token must not be blank");
         }
     }
+
+    @Override
+    public String toString() {
+        return "AccessToken[***]";
+    }
 }

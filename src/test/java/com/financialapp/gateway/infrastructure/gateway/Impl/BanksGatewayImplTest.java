@@ -1,8 +1,10 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
+import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.LoanView;
+import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -85,5 +88,36 @@ class BanksGatewayImplTest {
     void loan_installments_empty_on_error_body() {
         assertThat(gatewayReturning("{ \"success\": false }")
                 .fetchLoanInstallments(new UserId(1L), 9L).join()).isEmpty();
+    }
+
+    @Test
+    void feesAreTheUserFeesObject() {
+        Map<String, Object> fees = gatewayReturning(
+                "{\"status\":200,\"data\":" + DownstreamFixtures.json("banks/user-fees.json") + "}")
+                .fetchFees(new UserId(1L)).join();
+
+        assertThat(fees).containsKeys("accounts", "cards");
+    }
+
+    @Test
+    void accountCurrenciesAreReadFromTheAccountsList() {
+        AtomicReference<String> path = new AtomicReference<>();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    path.set(request.url().getPath());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("{\"status\":200,\"data\":" + DownstreamFixtures.json("banks/accounts.json") + "}")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setBanksUrl("http://banks.test");
+        BanksGatewayImpl gateway = new BanksGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+
+        List<Currency> currencies = gateway.accountCurrencies(new UserId(1L)).join();
+
+        assertThat(path.get()).isEqualTo("/api/v1/banks/accounts");
+        assertThat(currencies).containsExactly(Currency.ARS);
     }
 }

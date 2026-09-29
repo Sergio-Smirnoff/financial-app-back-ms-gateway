@@ -1,0 +1,4 @@
+[
+  { "bankNumber": "017", "userId": 1, "name": "Cuenta Corriente", "type": "CHECKING", "balance": "434608.43", "currency": "ARS", "cbu": "0170099200000000000017", "alias": "demo.checking", "isActive": true, "createdAt": "2026-08-11T10:00:00", "updatedAt": "2026-09-20T10:00:00" },
+  { "bankNumber": "017", "userId": 1, "name": "Caja de Ahorro", "type": "SAVINGS", "balance": "100000.00", "currency": "ARS", "cbu": "0170099200000000000024", "alias": null, "isActive": true, "createdAt": "2026-08-11T10:00:00", "updatedAt": "2026-09-20T10:00:00" }
+]

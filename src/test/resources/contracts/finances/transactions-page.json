@@ -1,0 +1,9 @@
+{
+  "content": [
+    { "id": 101, "userId": 1, "fromCbu": "2850590940090418135201", "toCbu": "0170099200000000000017", "amount": "1450000.00", "currency": "ARS", "kind": "INCOME", "categoryId": 3, "categoryName": "Sueldo", "description": "Sueldo", "date": "2026-09-05", "paymentMethod": "TRANSFER", "note": null },
+    { "id": 102, "userId": 1, "fromCbu": "0170099200000000000017", "toCbu": "2850590940090418135201", "amount": "185000.00", "currency": "ARS", "kind": "EXPENSE", "categoryId": null, "categoryName": null, "description": "Coto", "date": "2026-09-08", "paymentMethod": "DEBIT_CARD", "note": "compra semanal" }
+  ],
+  "hasNext": false,
+  "nextCursor": null,
+  "totalElements": 2
+}

@@ -21,6 +21,9 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class GetSearchBffUseCaseImpl implements GetSearchBffUseCase {
 
+    private static final String MOVEMENTS_SOURCE = "ms-finances transaction search";
+    private static final String POSITIONS_SOURCE = "ms-investments position search";
+
     private final FinancesGateway finances;
     private final InvestmentsGateway investments;
     private final PageTimeoutBudget budget;
@@ -43,16 +46,15 @@ public class GetSearchBffUseCaseImpl implements GetSearchBffUseCase {
     @Override
     public CompletableFuture<SearchBffData> execute(UserId userId, String query) {
         String q = query != null ? query.trim() : "";
+        String needle = q.toLowerCase(Locale.ROOT);
 
         CompletableFuture<Section<List<SearchHit>>> movementsSec = applyBudget(
                 Section.guard(
                         finances.searchTransactions(userId, q)
-                                .thenApply(list -> list.stream().map(m -> {
-                                    String id = String.valueOf(m.getOrDefault("id", ""));
-                                    String label = String.valueOf(m.getOrDefault("description", ""));
-                                    String sublabel = String.valueOf(m.getOrDefault("amount", "")) + " " + String.valueOf(m.getOrDefault("currency", "ARS"));
-                                    String href = "/transactions?id=" + id;
-                                    return new SearchHit(id, label, sublabel, href);
+                                .thenApply(rows -> DownstreamPayload.rows(MOVEMENTS_SOURCE, rows).stream().map(movement -> {
+                                    String id = movement.text("id");
+                                    String sublabel = movement.textOr("amount", "") + " " + movement.textOr("currency", "ARS");
+                                    return new SearchHit(id, movement.textOr("description", ""), sublabel, "/transactions?id=" + id);
                                 }).toList()),
                         List.of(), clock),
                 List.of());
@@ -60,32 +62,21 @@ public class GetSearchBffUseCaseImpl implements GetSearchBffUseCase {
         CompletableFuture<Section<List<SearchHit>>> positionsSec = applyBudget(
                 Section.guard(
                         investments.searchPositions(userId, q)
-                                .thenApply(list -> list.stream().map(p -> {
-                                    String id = String.valueOf(p.getOrDefault("holdingId", p.getOrDefault("id", "")));
-                                    String label = String.valueOf(p.getOrDefault("ticker", ""));
-                                    String sublabel = String.valueOf(p.getOrDefault("name", ""));
-                                    String href = "/investments/holdings/" + id;
-                                    return new SearchHit(id, label, sublabel, href);
+                                .thenApply(rows -> DownstreamPayload.rows(POSITIONS_SOURCE, rows).stream().map(position -> {
+                                    String id = position.optionalText("holdingId").or(() -> position.optionalText("id")).orElse("");
+                                    return new SearchHit(id, position.textOr("ticker", ""), position.textOr("name", ""),
+                                            "/investments/holdings/" + id);
                                 }).toList()),
                         List.of(), clock),
                 List.of());
 
         CompletableFuture<Section<List<SearchHit>>> categoriesSec = applyBudget(
                 Section.guard(
-                        finances.fetchCategorizationRules(userId)
-                                .thenApply(list -> list.stream()
-                                        .filter(c -> {
-                                            String name = String.valueOf(c.getOrDefault("categoryName", "")).toLowerCase(Locale.ROOT);
-                                            return q.isEmpty() || name.contains(q.toLowerCase(Locale.ROOT));
-                                        })
-                                        .map(c -> {
-                                            String id = String.valueOf(c.getOrDefault("categoryId", ""));
-                                            String label = String.valueOf(c.getOrDefault("categoryName", ""));
-                                            String sublabel = "Categoría";
-                                            String href = "/categories?category=" + id;
-                                            return new SearchHit(id, label, sublabel, href);
-                                        })
-                                        .distinct()
+                        finances.fetchCategories(userId)
+                                .thenApply(categories -> CategoryTree.options(categories).stream()
+                                        .filter(option -> needle.isEmpty() || option.name().toLowerCase(Locale.ROOT).contains(needle))
+                                        .map(option -> new SearchHit(String.valueOf(option.id()), option.name(), "Categoría",
+                                                "/categories?category=" + option.id()))
                                         .toList()),
                         List.of(), clock),
                 List.of());

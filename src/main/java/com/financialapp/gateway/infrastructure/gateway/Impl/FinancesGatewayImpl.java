@@ -2,6 +2,7 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.exception.ResourceNotFoundException;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.bff.TransactionQuery;
@@ -11,6 +12,7 @@ import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
@@ -96,7 +98,8 @@ public class FinancesGatewayImpl implements FinancesGateway {
                 .retrieve()
                 .bodyToMono(MAP_TYPE)
                 .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
-                .onErrorReturn(Map.of())
+                .onErrorMap(WebClientResponseException.NotFound.class,
+                        notFound -> new ResourceNotFoundException("Transaction", id))
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }

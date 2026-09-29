@@ -1,0 +1,8 @@
+{
+  "accounts": [
+    { "cbu": "0170099200000000000017", "accountType": "CHECKING", "maintenanceFee": "5500.00", "transferFee": "0.00", "currency": "ARS", "ivaTreatment": "TAXED_21", "debitCreditTaxRate": "0.006" }
+  ],
+  "cards": [
+    { "cardNumber": "4509953566233704", "annualFee": "48000.00", "internationalSurchargePct": "4.50", "currency": "ARS", "ivaTreatment": "TAXED_21" }
+  ]
+}

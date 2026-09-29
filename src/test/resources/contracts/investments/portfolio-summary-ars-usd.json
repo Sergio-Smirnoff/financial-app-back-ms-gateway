@@ -1,0 +1,20 @@
+{
+  "byCurrency": [
+    {
+      "currency": "ARS",
+      "totalValue": "1000000.00",
+      "totalCost": "800000.00",
+      "totalPl": "200000.00",
+      "plPercent": "25.0000",
+      "breakdown": [ { "assetType": "STOCK", "totalValue": "1000000.00", "percentage": "100.0000" } ]
+    },
+    {
+      "currency": "USD",
+      "totalValue": "100.00",
+      "totalCost": "120.00",
+      "totalPl": "-20.00",
+      "plPercent": "-16.6700",
+      "breakdown": [ { "assetType": "CEDEAR", "totalValue": "100.00", "percentage": "100.0000" } ]
+    }
+  ]
+}

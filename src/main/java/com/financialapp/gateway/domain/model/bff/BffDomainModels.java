@@ -119,7 +119,7 @@ public class BffDomainModels {
         }
     }
 
-    public record RuleRow(Long id, String matcher, Long categoryId, String categoryName, Integer priority) {}
+    public record RuleRow(Long id, String matcher, Long categoryId, String categoryName, Integer matchCount) {}
 
     public record MarketQuote(String code, String label, BigDecimal value, BigDecimal variation, MarketQuoteUnit unit, Instant observedAt) {}
     public record InvestmentsKpis(MoneyFigure marketValue, MoneyFigure cost, MoneyFigure pnl, BigDecimal pnlPct) {
@@ -157,6 +157,6 @@ public class BffDomainModels {
     }
 
     public record NotificationPreference(String category, List<String> channels) {}
-    public record SessionRow(String id, String device, String ip, Instant lastSeenAt, Boolean current) {}
+    public record SessionRow(String id, String device, Instant lastSeenAt, Boolean current) {}
     public record SearchHit(String id, String label, String sublabel, String href) {}
 }

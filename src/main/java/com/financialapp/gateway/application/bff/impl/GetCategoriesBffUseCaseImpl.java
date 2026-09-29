@@ -12,24 +12,30 @@ import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
 import com.financialapp.gateway.domain.service.BffMoneyConverter;
+import com.financialapp.gateway.domain.service.Percentages;
 import com.financialapp.gateway.domain.usecase.bff.GetCategoriesBffUseCase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Service
 public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
+
+    private static final String BUDGETS_SOURCE = "ms-finances budgets";
+    private static final String PACE_SOURCE = "ms-finances budget pace";
+    private static final String CATEGORIES_SOURCE = "ms-finances categories";
+    private static final String FLOW_SOURCE = "ms-finances monthly flow";
+    private static final String RULES_SOURCE = "ms-finances categorization rules";
 
     private final FinancesGateway finances;
     private final InvestmentsGateway investments;
@@ -58,30 +64,28 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
         CompletableFuture<Optional<FxRate>> fxRateFuture = currencyView != CurrencyView.ARS ?
                 investments.fetchFxRate(currencyView, today) : CompletableFuture.completedFuture(Optional.empty());
 
-        CompletableFuture<List<Map<String, Object>>> budgetsFuture = finances.fetchBudgets(userId, period);
-        CompletableFuture<List<Map<String, Object>>> categoriesFuture = finances.fetchCategories(userId);
-        CompletableFuture<List<Map<String, Object>>> paceFuture = finances.fetchBudgetPace(userId, period);
+        CompletableFuture<List<DownstreamPayload>> budgetsFuture = finances.fetchBudgets(userId, period)
+                .thenApply(rows -> DownstreamPayload.rows(BUDGETS_SOURCE, rows));
+        CompletableFuture<List<DownstreamPayload>> categoriesFuture = finances.fetchCategories(userId)
+                .thenApply(rows -> DownstreamPayload.rows(CATEGORIES_SOURCE, rows));
+        CompletableFuture<List<DownstreamPayload>> paceFuture = finances.fetchBudgetPace(userId, period)
+                .thenApply(rows -> DownstreamPayload.rows(PACE_SOURCE, rows));
 
         CompletableFuture<Section<CategoriesKpis>> kpisSec = applyBudget(
                 Section.guard(
                         CompletableFuture.allOf(budgetsFuture, paceFuture, fxRateFuture)
                                 .thenApply(v -> {
                                     Optional<FxRate> fx = fxRateFuture.join();
-                                    List<Map<String, Object>> paceList = paceFuture.join();
-                                    BigDecimal spent = paceList.stream().map(p -> parseDecimal(p.get("spent"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal avail = paceList.stream().map(p -> parseDecimal(p.get("remaining"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    int overCount = (int) paceList.stream().filter(p -> Boolean.TRUE.equals(p.get("overBudget"))).count();
-                                    BigDecimal capTotal = budgetsFuture.join().stream().map(b -> parseDecimal(b.get("amount"))).reduce(BigDecimal.ZERO, BigDecimal::add);
-                                    BigDecimal pacePct = capTotal.compareTo(BigDecimal.ZERO) > 0
-                                             ? spent.multiply(new BigDecimal("100")).divide(capTotal, 2, RoundingMode.HALF_EVEN)
-                                             : BigDecimal.ZERO;
-
+                                    List<DownstreamPayload> pace = paceFuture.join();
+                                    BigDecimal spent = pace.stream().map(p -> p.decimalOrZero("spent")).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    BigDecimal available = pace.stream().map(p -> p.decimalOrZero("remaining")).reduce(BigDecimal.ZERO, BigDecimal::add);
+                                    int overCount = (int) pace.stream().filter(p -> p.flagOr("overBudget", false)).count();
+                                    BigDecimal capTotal = budgetsFuture.join().stream().map(b -> b.decimalOrZero("amount")).reduce(BigDecimal.ZERO, BigDecimal::add);
                                     return new CategoriesKpis(
                                             BffMoneyConverter.convert(spent, Currency.ARS, currencyView, secondary, fx),
-                                            BffMoneyConverter.convert(avail, Currency.ARS, currencyView, secondary, fx),
+                                            BffMoneyConverter.convert(available, Currency.ARS, currencyView, secondary, fx),
                                             overCount,
-                                            pacePct
-                                    );
+                                            Percentages.percentOf(spent, capTotal));
                                 }),
                         CategoriesKpis.empty(), clock),
                 CategoriesKpis.empty());
@@ -91,36 +95,33 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                         CompletableFuture.allOf(budgetsFuture, paceFuture, categoriesFuture, fxRateFuture)
                                 .thenApply(v -> {
                                     Optional<FxRate> fx = fxRateFuture.join();
-                                    Map<Long, Map<String, Object>> paceByCategory = paceFuture.join().stream()
-                                            .filter(p -> parseLong(p.get("categoryId")) != null)
-                                            .collect(Collectors.toMap(p -> parseLong(p.get("categoryId")), p -> p, (a, b) -> a));
-                                    Map<Long, Map<String, Object>> budgetByCategory = budgetsFuture.join().stream()
-                                            .filter(b -> parseLong(b.get("categoryId")) != null)
-                                            .collect(Collectors.toMap(b -> parseLong(b.get("categoryId")), b -> b, (a, b) -> a));
-
+                                    Map<Long, DownstreamPayload> paceByCategory = byCategoryId(paceFuture.join());
+                                    Map<Long, DownstreamPayload> budgetByCategory = byCategoryId(budgetsFuture.join());
                                     List<BudgetRow> rows = new ArrayList<>();
-                                    for (Map<String, Object> category : categoriesFuture.join()) {
-                                        Long catId = parseLong(category.get("id"));
-                                        if (catId == null) continue;
-                                        String name = String.valueOf(category.getOrDefault("name", ""));
-                                        rows.add(toBudgetRow(catId, null, name, budgetByCategory.remove(catId), paceByCategory, currencyView, secondary, fx));
-
-                                        Object subsObj = category.get("subcategories");
-                                        if (subsObj instanceof List<?> subs) {
-                                            for (Object subObj : subs) {
-                                                if (!(subObj instanceof Map<?, ?> sub)) continue;
-                                                Long subId = parseLong(sub.get("id"));
-                                                if (subId == null) continue;
-                                                Object rawSubName = sub.get("name");
-                                                String subName = name + " / " + (rawSubName != null ? rawSubName : "");
-                                                rows.add(toBudgetRow(subId, catId, subName, budgetByCategory.remove(subId), paceByCategory, currencyView, secondary, fx));
+                                    for (DownstreamPayload category : categoriesFuture.join()) {
+                                        Optional<Long> categoryId = category.optionalLong("id");
+                                        if (categoryId.isEmpty()) {
+                                            continue;
+                                        }
+                                        String name = category.textOr("name", "");
+                                        rows.add(toBudgetRow(categoryId.get(), null, name,
+                                                budgetByCategory.remove(categoryId.get()), paceByCategory, currencyView, secondary, fx));
+                                        for (DownstreamPayload subcategory : category.listOrEmpty("subcategories")) {
+                                            Optional<Long> subcategoryId = subcategory.optionalLong("id");
+                                            if (subcategoryId.isEmpty()) {
+                                                continue;
                                             }
+                                            rows.add(toBudgetRow(subcategoryId.get(), categoryId.get(),
+                                                    CategoryTree.childLabel(name, subcategory.textOr("name", "")),
+                                                    budgetByCategory.remove(subcategoryId.get()), paceByCategory, currencyView, secondary, fx));
                                         }
                                     }
-                                    for (Map.Entry<Long, Map<String, Object>> orphan : budgetByCategory.entrySet()) {
-                                        Map<String, Object> b = orphan.getValue();
-                                        String name = String.valueOf(b.getOrDefault("categoryName", b.getOrDefault("name", "")));
-                                        rows.add(toBudgetRow(orphan.getKey(), null, name, b, paceByCategory, currencyView, secondary, fx));
+                                    for (Map.Entry<Long, DownstreamPayload> orphan : budgetByCategory.entrySet()) {
+                                        DownstreamPayload orphanBudget = orphan.getValue();
+                                        String name = orphanBudget.optionalText("categoryName")
+                                                .or(() -> orphanBudget.optionalText("name"))
+                                                .orElse("");
+                                        rows.add(toBudgetRow(orphan.getKey(), null, name, orphanBudget, paceByCategory, currencyView, secondary, fx));
                                     }
                                     return List.copyOf(rows);
                                 }),
@@ -130,28 +131,25 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
         CompletableFuture<Section<CategoryTrend>> trendSec = applyBudget(
                 Section.guard(
                         finances.fetchMonthlyFlow(userId, today.minusMonths(6), today)
-                                .thenCombine(fxRateFuture, (flowList, fx) -> {
-                                    List<CategoryTrendPoint> points = flowList.stream().map(f -> {
-                                        String m = String.valueOf(f.getOrDefault("month", ""));
-                                        BigDecimal exp = parseDecimal(f.get("expense"));
-                                        return new CategoryTrendPoint(m, BffMoneyConverter.convert(exp, Currency.ARS, currencyView, secondary, fx));
-                                    }).toList();
-                                    return new CategoryTrend(null, points);
-                                }),
+                                .thenCombine(fxRateFuture, (rows, fx) -> new CategoryTrend(null,
+                                        DownstreamPayload.rows(FLOW_SOURCE, rows).stream()
+                                                .map(month -> new CategoryTrendPoint(month.textOr("month", ""),
+                                                        BffMoneyConverter.convert(month.decimalOrZero("expense"), Currency.ARS, currencyView, secondary, fx)))
+                                                .toList())),
                         CategoryTrend.empty(), clock),
                 CategoryTrend.empty());
 
         CompletableFuture<Section<List<RuleRow>>> rulesSec = applyBudget(
                 Section.guard(
                         finances.fetchCategorizationRules(userId)
-                                .thenApply(list -> list.stream().map(r -> {
-                                    Long id = parseLong(r.get("id"));
-                                    String matcher = String.valueOf(r.getOrDefault("matcher", ""));
-                                    Long catId = parseLong(r.get("categoryId"));
-                                    String catName = String.valueOf(r.getOrDefault("categoryName", ""));
-                                    Integer priority = parseInt(r.get("priority"), 0);
-                                    return new RuleRow(id, matcher, catId, catName, priority);
-                                }).toList()),
+                                .thenApply(rows -> DownstreamPayload.rows(RULES_SOURCE, rows).stream()
+                                        .map(rule -> new RuleRow(
+                                                rule.longValue("id"),
+                                                rule.text("pattern"),
+                                                rule.optionalLong("categoryId").orElse(null),
+                                                rule.textOr("categoryName", ""),
+                                                Math.toIntExact(rule.longValue("matchCount"))))
+                                        .toList()),
                         List.of(), clock),
                 List.of());
 
@@ -167,34 +165,25 @@ public class GetCategoriesBffUseCaseImpl implements GetCategoriesBffUseCase {
                 TimeUnit.MILLISECONDS);
     }
 
+    private static Map<Long, DownstreamPayload> byCategoryId(List<DownstreamPayload> rows) {
+        Map<Long, DownstreamPayload> byId = new HashMap<>();
+        for (DownstreamPayload row : rows) {
+            row.optionalLong("categoryId").ifPresent(id -> byId.putIfAbsent(id, row));
+        }
+        return byId;
+    }
+
     private BudgetRow toBudgetRow(
-            Long categoryId, Long parentId, String name, Map<String, Object> budget,
-            Map<Long, Map<String, Object>> paceByCategory,
+            Long categoryId, Long parentId, String name, DownstreamPayload budgetRow,
+            Map<Long, DownstreamPayload> paceByCategory,
             CurrencyView currencyView, String secondary, Optional<FxRate> fx) {
-        Map<String, Object> budgetRow = budget != null ? budget : Map.of();
-        Map<String, Object> pace = paceByCategory.getOrDefault(categoryId, Map.of());
-        BigDecimal cap = parseDecimal(budgetRow.get("amount"));
-        BigDecimal threshold = parseDecimal(budgetRow.get("alertThresholdPct"));
-        BigDecimal spent = parseDecimal(pace.get("spent"));
-        BigDecimal pct = parseDecimal(pace.get("pctUsed"));
-        Boolean over = Boolean.TRUE.equals(pace.get("overBudget"));
-        return new BudgetRow(categoryId, parentId, name, cap,
-                BffMoneyConverter.convert(spent, Currency.ARS, currencyView, secondary, fx),
-                pct, threshold, over);
-    }
-
-    private static BigDecimal parseDecimal(Object val) {
-        if (val == null) return BigDecimal.ZERO;
-        try { return new BigDecimal(val.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
-    }
-
-    private static Long parseLong(Object val) {
-        if (val == null) return null;
-        try { return Long.parseLong(val.toString()); } catch (Exception e) { return null; }
-    }
-
-    private static int parseInt(Object val, int fallback) {
-        if (val == null) return fallback;
-        try { return Integer.parseInt(val.toString()); } catch (Exception e) { return fallback; }
+        DownstreamPayload cap = budgetRow != null ? budgetRow : new DownstreamPayload(BUDGETS_SOURCE, Map.of());
+        DownstreamPayload pace = paceByCategory.getOrDefault(categoryId, new DownstreamPayload(PACE_SOURCE, Map.of()));
+        return new BudgetRow(categoryId, parentId, name,
+                cap.decimalOrZero("amount"),
+                BffMoneyConverter.convert(pace.decimalOrZero("spent"), Currency.ARS, currencyView, secondary, fx),
+                pace.decimalOrZero("pctUsed"),
+                cap.decimalOrZero("alertThresholdPct"),
+                pace.flagOr("overBudget", false));
     }
 }

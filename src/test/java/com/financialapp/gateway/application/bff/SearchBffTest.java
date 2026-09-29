@@ -1,9 +1,11 @@
 package com.financialapp.gateway.application.bff;
 
 import com.financialapp.gateway.application.bff.impl.GetSearchBffUseCaseImpl;
+import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.SearchHit;
 import com.financialapp.gateway.domain.model.bff.SearchBffData;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
@@ -18,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
@@ -35,14 +38,14 @@ class SearchBffTest {
         useCase = new GetSearchBffUseCaseImpl(finances, investments, PageTimeoutBudget.fromMillis(3000));
         lenient().when(finances.searchTransactions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         lenient().when(investments.searchPositions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        lenient().when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        lenient().when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
     }
 
     @Test
     void execute_returnsOkGroupedSearchSections() {
         when(finances.searchTransactions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(investments.searchPositions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
 
         SearchBffData data = useCase.execute(new UserId(1L), "groceries").join();
 
@@ -59,5 +62,16 @@ class SearchBffTest {
         SearchBffData data = useCase.execute(new UserId(1L), "super").join();
 
         assertThat(data.movements().data().get(0).href()).isEqualTo("/transactions?id=134");
+    }
+
+    @Test
+    void categoriesAreSearchedInTheCategoryTreeNotTheRules() {
+        when(finances.fetchCategories(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.list("finances/categories.json")));
+
+        SearchBffData data = useCase.execute(new UserId(1L), "mayor").join();
+
+        assertThat(data.categories().data()).extracting(SearchHit::label, SearchHit::href)
+                .containsExactly(tuple("Supermercado / Mayorista", "/categories?category=11"));
     }
 }

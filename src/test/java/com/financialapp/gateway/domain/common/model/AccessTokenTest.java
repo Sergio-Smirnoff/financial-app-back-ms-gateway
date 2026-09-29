@@ -7,6 +7,11 @@ class AccessTokenTest {
     @Test void accepts_value() {
         assertEquals("a.b.c", new AccessToken("a.b.c").value());
     }
+    @Test void toStringDoesNotRevealTheToken() {
+        String rendered = new AccessToken("a.b.c").toString();
+        assertFalse(rendered.contains("a.b.c"));
+        assertEquals("AccessToken[***]", rendered);
+    }
     @Test void rejects_blank_or_null() {
         assertThrows(IllegalArgumentException.class, () -> new AccessToken("  "));
         assertThrows(IllegalArgumentException.class, () -> new AccessToken(null));

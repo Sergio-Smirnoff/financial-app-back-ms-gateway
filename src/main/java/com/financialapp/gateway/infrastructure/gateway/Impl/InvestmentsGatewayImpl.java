@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -82,7 +83,7 @@ public class InvestmentsGatewayImpl implements InvestmentsGateway {
     @Override
     public CompletableFuture<List<Currency>> holdingCurrencies(Long userId) {
         return webClient.get()
-                .uri(investmentsUrl + "/api/v1/investments/holdings")
+                .uri(investmentsUrl + "/api/v1/investments/portfolio/holdings")
                 .header("X-User-Id", userId.toString())
                 .retrieve()
                 .bodyToMono(HOLDINGS_TYPE)
@@ -149,17 +150,29 @@ public class InvestmentsGatewayImpl implements InvestmentsGateway {
 
     @Override
     public CompletableFuture<List<FxRate>> fetchFxRates(LocalDate from, LocalDate to, CurrencyView view) {
-        return webClient.get()
-                .uri(investmentsUrl + "/api/v1/investments/fx/rates?from={from}&to={to}&view={view}", from, to, view)
-                .retrieve()
-                .bodyToMono(FX_RATES_TYPE)
-                .map(response -> nullSafe(response.data()).stream()
-                        .map(this::toFxRate)
-                        .filter(Objects::nonNull)
-                        .toList())
-                .onErrorReturn(List.of())
-                .timeout(timeoutPolicy.perCall())
-                .toFuture();
+        return rateModeOf(view)
+                .map(mode -> webClient.get()
+                        .uri(investmentsUrl + "/api/v1/investments/fx/rates?from={from}&to={to}&view={view}",
+                                from, to, mode.name())
+                        .retrieve()
+                        .bodyToMono(FX_RATES_TYPE)
+                        .map(response -> nullSafe(response.data()).stream()
+                                .map(this::toFxRate)
+                                .filter(Objects::nonNull)
+                                .toList())
+                        .timeout(timeoutPolicy.perCall())
+                        .toFuture())
+                .orElseGet(() -> CompletableFuture.failedFuture(
+                        new IllegalArgumentException("No exchange-rate view for " + view)));
+    }
+
+    private static Optional<FxRateMode> rateModeOf(CurrencyView view) {
+        return switch (view) {
+            case USD_MEP -> Optional.of(FxRateMode.MEP);
+            case USD_CCL -> Optional.of(FxRateMode.CCL);
+            case USD_OFICIAL -> Optional.of(FxRateMode.OFICIAL);
+            case ARS -> Optional.empty();
+        };
     }
 
     @Override

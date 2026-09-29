@@ -25,14 +25,17 @@ src/main/java/com/financialapp/gateway/
 │   │   └── UserId.java               # typed user identifier
 │   ├── exception/
 │   │   ├── DomainErrorCode.java
-│   │   └── InvalidAccessTokenException.java
+│   │   ├── DownstreamContractViolationException.java
+│   │   ├── InvalidAccessTokenException.java
+│   │   ├── ResourceNotFoundException.java
+│   │   └── UnconvertibleAmountException.java
 │   ├── gateway/
-│   │   ├── BanksGateway.java         # port — accounts, cards, loans, payments, fees
+│   │   ├── BanksGateway.java         # port — accounts, cards, loans, payments, fetchFees (accounts + cards fee schedules)
 │   │   ├── FinancesGateway.java      # port — transactions, categories, budgets, spend by category
 │   │   ├── InvestmentsGateway.java   # port — portfolio, holdings, evolution, market panel, fx rates, fees
-│   │   ├── NotificationsGateway.java # port — unread count, latest, notification preferences
+│   │   ├── NotificationsGateway.java # port — unread count, latest, fetchLatestOfType (client-side type filter), notification preferences
 │   │   ├── UploadGateway.java        # port — import history, run details
-│   │   ├── UsersGateway.java         # port — profile, sessions, preferences
+│   │   ├── UsersGateway.java         # port — profile, sessions (forwards the caller's access_token), preferences
 │   │   └── TokenVerificationGateway.java
 │   ├── model/
 │   │   ├── admission/
@@ -70,7 +73,9 @@ src/main/java/com/financialapp/gateway/
 │   │       └── UpcomingPaymentView.java
 │   ├── service/
 │   │   ├── AvailableCurrencies.java  # currency selector resolution service
-│   │   └── MoneyConversion.java      # 3-case currency conversion service
+│   │   ├── BffMoneyConverter.java    # BFF conversion; toArs sums CurrencyAmounts or throws UnconvertibleAmountException
+│   │   ├── Percentages.java          # single percentOf formula
+│   │   └── MoneyConversion.java      # 3-case currency conversion service (not used by the BFF)
 │   └── usecase/
 │       ├── bff/                      # BFF use case interfaces
 │       │   ├── GetOverviewBffUseCase.java
@@ -98,7 +103,12 @@ src/main/java/com/financialapp/gateway/
 │   │   ├── GetImportsBffUseCaseImpl.java
 │   │   ├── GetSettingsBffUseCaseImpl.java
 │   │   ├── GetSearchBffUseCaseImpl.java
-│   │   └── CardFigures.java          # shared usedAmount/usedPercent reader off the raw ms-banks card map
+│   │   ├── CardFigures.java          # shared usedAmount/usedPercent reader off the raw ms-banks card map
+│   │   ├── DownstreamPayload.java    # strict typed reader for raw downstream maps; violations degrade one section
+│   │   ├── PortfolioFigures.java     # ms-investments summary/evolution -> CurrencyAmounts, USD rate selection
+│   │   ├── TransactionRows.java      # ms-finances transaction map -> TransactionRow
+│   │   ├── AccountLabels.java        # CBU -> display label (alias, name, CBU)
+│   │   └── CategoryTree.java         # categories + subcategories -> filter/search options
 │   ├── currency/impl/
 │   │   └── GetAvailableCurrenciesUseCaseImpl.java
 │   └── dashboard/impl/
@@ -165,7 +175,8 @@ src/main/java/com/financialapp/gateway/
     ├── error/
     │   ├── ErrorResponseRenderer.java
     │   ├── GatewayErrorWebExceptionHandler.java
-    │   └── GlobalExceptionHandler.java
+    │   ├── GlobalExceptionHandler.java
+    │   └── StatusErrorCodes.java     # downstream HTTP status -> DomainErrorCode / ErrorCategory -> HttpStatus
     ├── filter/
     │   ├── JwtAuthFilter.java        # order -2 (enforces access token type check)
     │   ├── RateLimitFilter.java      # order -1 (idle bucket eviction)

@@ -81,7 +81,7 @@ public class BffWebResponses {
     public record CategoryTrendPointResponse(String month, MoneyView amount) {}
     public record CategoryTrendResponse(Long categoryId, List<CategoryTrendPointResponse> points) {}
 
-    public record RuleRowResponse(Long id, String matcher, Long categoryId, String categoryName, Integer priority) {}
+    public record RuleRowResponse(Long id, String matcher, Long categoryId, String categoryName, Integer matchCount) {}
 
     public record MarketQuoteResponse(String code, String label, BigDecimal value, BigDecimal variation, String unit, Instant observedAt) {}
     public record InvestmentsKpisResponse(MoneyView marketValue, MoneyView cost, MoneyView pnl, BigDecimal pnlPct) {}
@@ -103,6 +103,6 @@ public class BffWebResponses {
     public record FeesSummaryResponse(List<FeeRowResponse> accounts, List<FeeRowResponse> cards, List<FeeRowResponse> brokers, BigDecimal debitCreditTaxRate) {}
 
     public record NotificationPreferenceResponse(String category, List<String> channels) {}
-    public record SessionRowResponse(String id, String device, String ip, Instant lastSeenAt, Boolean current) {}
+    public record SessionRowResponse(String id, String device, Instant lastSeenAt, Boolean current) {}
     public record SearchHitResponse(String id, String label, String sublabel, String href) {}
 }

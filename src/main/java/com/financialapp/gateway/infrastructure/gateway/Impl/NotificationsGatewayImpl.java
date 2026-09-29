@@ -71,9 +71,9 @@ public class NotificationsGatewayImpl implements NotificationsGateway {
     }
 
     @Override
-    public CompletableFuture<List<Map<String, Object>>> fetchLatestByCategory(UserId userId, String category) {
+    public CompletableFuture<List<Map<String, Object>>> fetchLatestOfType(UserId userId, String type) {
         return fetchLatest(userId).thenApply(list -> list == null ? List.of() : list.stream()
-                .filter(m -> category.equalsIgnoreCase(String.valueOf(m.get("category"))))
+                .filter(notification -> type.equalsIgnoreCase(String.valueOf(notification.get("type"))))
                 .toList());
     }
 }

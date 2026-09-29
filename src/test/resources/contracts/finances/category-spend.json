@@ -1,0 +1,4 @@
+[
+  { "categoryId": 1, "categoryName": "Supermercado", "total": "327500.50", "currency": "ARS", "transactionCount": 2 },
+  { "categoryId": 2, "categoryName": "Transporte", "total": "59950.00", "currency": "ARS", "transactionCount": 2 }
+]

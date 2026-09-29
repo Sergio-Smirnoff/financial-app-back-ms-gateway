@@ -2,6 +2,7 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.exception.ResourceNotFoundException;
 import com.financialapp.gateway.domain.model.bff.CurrencySummary;
 import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
@@ -10,15 +11,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FinancesGatewayImplTest {
 
@@ -213,5 +217,37 @@ class FinancesGatewayImplTest {
                 0, 20, List.of(), List.of(), null, "a{b}c", null, null)).join();
 
         assertThat(capturedQuery.get()).contains("q=a%7Bb%7Dc");
+    }
+
+    @Test
+    void aMissingTransactionFailsAsNotFound() {
+        FinancesGatewayImpl gateway = gatewayAnswering(HttpStatus.NOT_FOUND,
+                "{\"status\":404,\"code\":\"transaction_not_found\",\"message\":\"Transaction 999 not found\"}");
+
+        assertThatThrownBy(() -> gateway.fetchTransactionById(new UserId(1L), 999L).join())
+                .isInstanceOf(CompletionException.class)
+                .hasCauseInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void aFinancesOutageFailsInsteadOfReturningAnEmptyTransaction() {
+        FinancesGatewayImpl gateway = gatewayAnswering(HttpStatus.INTERNAL_SERVER_ERROR,
+                "{\"status\":500,\"code\":\"internal_error\"}");
+
+        assertThatThrownBy(() -> gateway.fetchTransactionById(new UserId(1L), 5L).join())
+                .isInstanceOf(CompletionException.class)
+                .hasCauseInstanceOf(WebClientResponseException.InternalServerError.class);
+    }
+
+    private FinancesGatewayImpl gatewayAnswering(HttpStatus status, String json) {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> Mono.just(ClientResponse.create(status)
+                        .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .body(json)
+                        .build()))
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setFinancesUrl("http://finances.test");
+        return new FinancesGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
     }
 }
