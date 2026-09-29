@@ -7,6 +7,7 @@ import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.bff.LoanView;
 import com.financialapp.gateway.domain.model.bff.UpcomingPaymentView;
 import com.financialapp.gateway.infrastructure.config.ServicesProperties;
+import com.financialapp.gateway.infrastructure.gateway.dto.AccountResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.GatewayApiResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.LoanResponse;
 import com.financialapp.gateway.infrastructure.gateway.dto.UpcomingPaymentResponse;
@@ -26,9 +27,11 @@ public class BanksGatewayImpl implements BanksGateway {
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<GatewayApiResponse<List<UpcomingPaymentResponse>>> UPCOMING_TYPE =
             new ParameterizedTypeReference<>() {};
-    private static final ParameterizedTypeReference<GatewayApiResponse<List<String>>> CURRENCIES_TYPE =
+    private static final ParameterizedTypeReference<GatewayApiResponse<List<AccountResponse>>> ACCOUNTS_TYPE =
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<GatewayApiResponse<List<Map<String, Object>>>> LIST_MAP_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<Map<String, Object>>> MAP_TYPE =
             new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
@@ -71,11 +74,16 @@ public class BanksGatewayImpl implements BanksGateway {
     @Override
     public CompletableFuture<List<Currency>> accountCurrencies(UserId userId) {
         return webClient.get()
-                .uri(banksUrl + "/api/v1/banks/accounts/currencies")
+                .uri(banksUrl + "/api/v1/banks/accounts")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
-                .bodyToMono(CURRENCIES_TYPE)
-                .map(r -> r.data() == null ? List.<Currency>of() : r.data().stream().map(Currency::new).toList())
+                .bodyToMono(ACCOUNTS_TYPE)
+                .map(r -> r.data() == null ? List.<Currency>of() : r.data().stream()
+                        .map(AccountResponse::currency)
+                        .filter(currency -> currency != null && !currency.isBlank())
+                        .map(Currency::of)
+                        .distinct()
+                        .toList())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
@@ -146,14 +154,14 @@ public class BanksGatewayImpl implements BanksGateway {
     }
 
     @Override
-    public CompletableFuture<List<Map<String, Object>>> fetchFees(UserId userId) {
+    public CompletableFuture<Map<String, Object>> fetchFees(UserId userId) {
         return webClient.get()
                 .uri(banksUrl + "/api/v1/banks/fees")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
-                .bodyToMono(LIST_MAP_TYPE)
-                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
-                .onErrorReturn(List.of())
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }

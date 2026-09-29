@@ -1,0 +1,4 @@
+[
+  { "category": "PORTFOLIO_ALERTS", "inAppEnabled": true, "emailEnabled": false, "hasUiToggle": true },
+  { "category": "SUMMARY", "inAppEnabled": false, "emailEnabled": true, "hasUiToggle": true }
+]

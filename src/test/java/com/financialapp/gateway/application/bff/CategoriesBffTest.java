@@ -1,10 +1,12 @@
 package com.financialapp.gateway.application.bff;
 
 import com.financialapp.gateway.application.bff.impl.GetCategoriesBffUseCaseImpl;
+import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.BudgetRow;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.RuleRow;
 import com.financialapp.gateway.domain.model.bff.CategoriesBffData;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
@@ -141,5 +143,23 @@ class CategoriesBffTest {
         List<BudgetRow> rows = data.budgets().data();
         assertThat(rows).extracting(BudgetRow::categoryId, BudgetRow::parentId)
                 .containsExactlyInAnyOrder(tuple(5L, null), tuple(51L, 5L), tuple(90L, null));
+    }
+
+    @Test
+    void rulesReadThePatternAndCarryNoPriority() {
+        when(finances.fetchBudgetPace(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchBudgets(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.list("finances/categorization-rules.json")));
+
+        List<RuleRow> rules = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join().rules().data();
+
+        assertThat(rules).singleElement().satisfies(rule -> {
+            assertThat(rule.id()).isEqualTo(5L);
+            assertThat(rule.matcher()).isEqualTo("COTO");
+            assertThat(rule.categoryId()).isEqualTo(1L);
+            assertThat(rule.categoryName()).isEqualTo("Supermercado");
+            assertThat(rule.priority()).isNull();
+        });
     }
 }

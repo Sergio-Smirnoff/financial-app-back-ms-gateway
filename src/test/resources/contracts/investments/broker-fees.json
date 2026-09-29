@@ -1,0 +1,3 @@
+[
+  { "id": 3, "bankNumber": "017", "assetType": "BOND", "buyFeePct": 0.5, "sellFeePct": 0.5, "minimumFee": 150.00, "marketFeePct": 0.01, "ivaTreatment": "TAXED_21", "currency": "ARS" }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": 7,
+    "userId": 1,
+    "bankNumber": "017",
+    "ticker": "AO29",
+    "name": "Bono Rep. Argentina 2029",
+    "assetType": "BOND",
+    "quantity": "687",
+    "avgPurchasePrice": "1435.78",
+    "currency": "ARS",
+    "notifyGainThresholdPct": null,
+    "notifyLossThresholdPct": null,
+    "createdAt": "2026-09-01T13:45:10",
+    "updatedAt": "2026-09-20T09:00:00",
+    "lastGainNotifiedAt": null,
+    "lastLossNotifiedAt": null,
+    "currentPrice": "131700",
+    "currentValue": "904779.00",
+    "plAmount": "-81601.86",
+    "plPercent": "-8.2700"
+  }
+]

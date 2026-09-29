@@ -37,12 +37,7 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
                         "Service temporarily unavailable";
                 default -> rse.getReason() != null ? rse.getReason() : "Gateway error";
             };
-            code = switch (status) {
-                case SERVICE_UNAVAILABLE, BAD_GATEWAY, GATEWAY_TIMEOUT -> DomainErrorCode.UPSTREAM_UNAVAILABLE;
-                case UNAUTHORIZED -> DomainErrorCode.UNAUTHORIZED;
-                case TOO_MANY_REQUESTS -> DomainErrorCode.RATE_LIMITED;
-                default -> DomainErrorCode.INTERNAL_ERROR;
-            };
+            code = StatusErrorCodes.codeFor(status);
         } else if (ex instanceof ConnectException) {
             status = HttpStatus.SERVICE_UNAVAILABLE;
             message = "Service temporarily unavailable";

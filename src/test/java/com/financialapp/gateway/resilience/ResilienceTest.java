@@ -1,6 +1,7 @@
 package com.financialapp.gateway.resilience;
 
 import com.financialapp.gateway.application.bff.impl.GetOverviewBffUseCaseImpl;
+import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.FinancesGateway;
@@ -40,7 +41,8 @@ class ResilienceTest {
 
         CompletableFuture<List<Map<String, Object>>> slowFuture = new CompletableFuture<>(); // never completes
         when(finances.fetchSummary(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of()));
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.object("investments/portfolio-summary.json")));
         when(finances.fetchMonthlyFlow(any(), any(), any())).thenReturn(slowFuture);
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));

@@ -28,5 +28,5 @@ public interface BanksGateway {
 
     CompletableFuture<List<Map<String, Object>>> fetchLoanInstallments(UserId userId, Long loanId);
 
-    CompletableFuture<List<Map<String, Object>>> fetchFees(UserId userId);
+    CompletableFuture<Map<String, Object>> fetchFees(UserId userId);
 }

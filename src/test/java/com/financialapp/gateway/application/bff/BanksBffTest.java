@@ -1,11 +1,14 @@
 package com.financialapp.gateway.application.bff;
 
 import com.financialapp.gateway.application.bff.impl.GetBanksBffUseCaseImpl;
+import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.UploadGateway;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.AccountRow;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.CardRow;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.CompositionSlice;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.ImportHealthRow;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.ImportStatus;
 import com.financialapp.gateway.domain.model.bff.BanksBffData;
@@ -19,7 +22,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -112,11 +118,10 @@ class BanksBffTest {
     }
 
     @Test
-    void cardRowsReportTheUsedAmountSentByMsBanks() {
+    void cardRowsReadTheDisplayNameAndTheUsedAmountSentByMsBanks() {
         when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
-        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of(Map.of(
-                "cardNumber", "1111", "brand", "VISA", "alias", "Personal",
-                "creditLimit", "100000.00", "usedAmount", "1666.67", "usedPercent", "1.67"))));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.list("banks/cards.json")));
         when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(upload.fetchHistory(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
@@ -124,8 +129,36 @@ class BanksBffTest {
         BanksBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
 
         CardRow card = data.cards().data().get(0);
+        assertThat(card.alias()).isEqualTo("Visa Oro");
+        assertThat(card.cardNumber()).isEqualTo("4509953566233704");
         assertThat(card.used().amount()).isEqualByComparingTo("1666.67");
-        assertThat(card.usedPct()).isEqualByComparingTo("1.67");
+        assertThat(card.usedPct()).isEqualByComparingTo("0.33");
+        assertThat(card.closingDate()).isEqualTo(LocalDate.of(2026, 9, 20));
         assertThat(data.kpis().data().cardDebt().amount()).isEqualByComparingTo("1666.67");
+    }
+
+    @Test
+    void accountsImportHealthAndCashReadTheRealKeys() {
+        GetBanksBffUseCaseImpl atNoon = new GetBanksBffUseCaseImpl(banks, investments, upload,
+                PageTimeoutBudget.fromMillis(3000), Clock.fixed(Instant.parse("2026-09-28T12:00:00Z"), ZoneOffset.UTC));
+        when(banks.fetchAccounts(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.list("banks/accounts.json")));
+        when(banks.fetchCards(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(banks.fetchLoans(any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(upload.fetchHistory(any())).thenReturn(CompletableFuture.completedFuture(
+                DownstreamFixtures.list("upload/history.json")));
+        when(banks.fetchUpcomingPayments(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        BanksBffData data = atNoon.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        assertThat(data.accounts().data()).extracting(AccountRow::alias).containsExactly("demo.checking", "Caja de Ahorro");
+        assertThat(data.accounts().data()).extracting(AccountRow::bankName).containsOnlyNulls();
+        ImportHealthRow checking = data.importHealth().data().get(0);
+        assertThat(checking.lastImportAt()).isEqualTo(Instant.parse("2026-09-12T15:04:05Z"));
+        assertThat(checking.daysSince()).isEqualTo(15L);
+        assertThat(checking.status()).isEqualTo(ImportStatus.OK);
+        assertThat(data.importHealth().data().get(1).status()).isEqualTo(ImportStatus.NEVER);
+        assertThat(data.cashDistribution().data()).extracting(CompositionSlice::label)
+                .containsExactly("demo.checking", "Caja de Ahorro");
     }
 }

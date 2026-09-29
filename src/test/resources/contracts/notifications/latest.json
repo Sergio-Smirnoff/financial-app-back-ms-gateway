@@ -1,0 +1,4 @@
+[
+  { "id": 9, "userId": 1, "type": "INVESTMENT_THRESHOLD", "title": "YPFD +8%", "message": "YPFD superó tu umbral de ganancia", "channel": "IN_APP", "read": false, "metadata": null, "createdAt": "2026-09-28T12:30:00" },
+  { "id": 10, "userId": 1, "type": "PAYMENT_DUE", "title": "Vence tu tarjeta", "message": "Visa Oro vence el 10/10", "channel": "IN_APP", "read": true, "metadata": null, "createdAt": "2026-09-27T08:00:00" }
+]
