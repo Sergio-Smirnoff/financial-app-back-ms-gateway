@@ -1,5 +1,6 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
+import com.financialapp.gateway.contracts.DownstreamFixtures;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.LoanView;
@@ -85,5 +86,14 @@ class BanksGatewayImplTest {
     void loan_installments_empty_on_error_body() {
         assertThat(gatewayReturning("{ \"success\": false }")
                 .fetchLoanInstallments(new UserId(1L), 9L).join()).isEmpty();
+    }
+
+    @Test
+    void feesAreTheUserFeesObject() {
+        Map<String, Object> fees = gatewayReturning(
+                "{\"status\":200,\"data\":" + DownstreamFixtures.json("banks/user-fees.json") + "}")
+                .fetchFees(new UserId(1L)).join();
+
+        assertThat(fees).containsKeys("accounts", "cards");
     }
 }

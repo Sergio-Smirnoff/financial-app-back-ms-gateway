@@ -30,6 +30,8 @@ public class BanksGatewayImpl implements BanksGateway {
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<GatewayApiResponse<List<Map<String, Object>>>> LIST_MAP_TYPE =
             new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<GatewayApiResponse<Map<String, Object>>> MAP_TYPE =
+            new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
     private final String banksUrl;
@@ -146,14 +148,14 @@ public class BanksGatewayImpl implements BanksGateway {
     }
 
     @Override
-    public CompletableFuture<List<Map<String, Object>>> fetchFees(UserId userId) {
+    public CompletableFuture<Map<String, Object>> fetchFees(UserId userId) {
         return webClient.get()
                 .uri(banksUrl + "/api/v1/banks/fees")
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
-                .bodyToMono(LIST_MAP_TYPE)
-                .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())
-                .onErrorReturn(List.of())
+                .bodyToMono(MAP_TYPE)
+                .map(r -> r.data() != null ? r.data() : Map.<String, Object>of())
+                .onErrorReturn(Map.of())
                 .timeout(timeoutPolicy.perCall())
                 .toFuture();
     }
