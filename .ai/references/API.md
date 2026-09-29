@@ -56,6 +56,19 @@ Route mappings, BFF endpoints, and gateway error normalization. Envelope shape: 
   cannot inject an extra query parameter, but the two call shapes reach that guarantee through
   different mechanisms.
 
+## BFF read contract
+
+- **Strict reads.** Every BFF use case reads downstream payloads through `DownstreamPayload` (`application/bff/impl`), which names each audited key and its type. A missing or malformed required key throws `DownstreamContractViolationException` and logs `Downstream contract violation: <source> field '<key>' <problem>`; `Section.guard` then degrades only the section that read it to `UNAVAILABLE`. There are no silent defaults for required keys. Contract fixtures live in `src/test/resources/contracts/<service>/` and mirror the downstream DTOs the tests name.
+- **Investments aggregation (`/bff/investments`).** `PortfolioFigures.summary` sums every currency bucket of `GET /portfolio/summary` into `CurrencyAmounts`. Each bucket is converted to ARS at the view rate (`buy` for USD), then to the target view; P&L is `market - cost` in ARS and P&L % is recomputed with `Percentages.percentOf` (never taken from a bucket). In the ARS view the MEP rate is fetched only when a non-ARS bucket has a non-zero amount (`PortfolioFigures.usdRate`); in a USD view the view rate is reused. A bucket that cannot be converted (no rate, or a currency other than ARS/USD) makes that section `UNAVAILABLE` instead of showing a partial sum. The evolution series has no cost: `EvolutionPoint.cost` is `null`. Composition slices are per asset type, in ARS, with `percentOf` share.
+- **USD view spread.** USD view figures convert USD to ARS at `buy` and then ARS to USD at `sell`, so a USD-only portfolio shows a small drift equal to the spread (consequence of D13).
+- **Rate views.** `CurrencyView` `USD_MEP` / `USD_CCL` / `USD_OFICIAL` is sent to ms-investments as `view=MEP|CCL|OFICIAL` on `GET /fx/rates`. `InvestmentsGateway.fetchFxRate(view, date)` returns the latest rate on or before `date` within `FX_RATE_LOOKBACK_DAYS` (7); none in the window means no rate.
+- **Alerts.** The investments alerts section uses `NotificationsGateway.fetchLatestOfType(userId, "INVESTMENT_THRESHOLD")`, which filters the latest notifications client-side by `type`.
+- **Categories.** Transaction filter options and search categories come from `CategoryTree.options` over `fetchCategories`: one option per category and one per subcategory, labelled `"<parent> / <child>"`.
+- **Transaction detail (`GET /bff/transactions/{id}`).** A non-numeric `id` is a 400 `invalid_request`; an unknown transaction is a 404 `resource_not_found` (`ResourceNotFoundException` from `fetchTransactionById`). Any other failure of the transaction fetch degrades the detail section rather than failing the request. Rows are built by `TransactionRows`, labelling accounts through `AccountLabels` (alias, then name, then CBU).
+- **`/bff/currencies` sources.** Account currencies from ms-banks (`accountCurrencies`), holding currencies from ms-investments (`holdingCurrencies`), and the user's primary currency from ms-users display preferences; each is guarded independently and merged by `AvailableCurrencies`.
+- **Fields sent as `null` for lack of a source:** `AccountRow.bankName`, `TransactionOrigin.fileName`, `RuleRow.priority`, `SessionRow.ip`, `FeeRow.scope`, `EvolutionPoint.cost`.
+- **Downstream status mapping.** `StatusErrorCodes.codeFor` maps 400 to `invalid_request`, 404 to `resource_not_found`, 401 to `unauthorized`, 429 to `rate_limit_exceeded`, 502/503/504 to `upstream_unavailable`; every other status (including 403, 409, 422) maps to `internal_error`.
+
 ## DomainError catalog
 
 | Slug | HTTP status | When it is thrown |
@@ -64,4 +77,9 @@ Route mappings, BFF endpoints, and gateway error normalization. Envelope shape: 
 | `invalid_token_type` | 401 | `access_token` cookie carries `type == "refresh"` |
 | `rate_limit_exceeded` | 429 | IP token bucket empty (> RATE_LIMIT_RPM) |
 | `service_unavailable` | 503 | Upstream service connection refused or timed out |
+| `invalid_request` | 400 | Malformed request or a downstream 400 (e.g. non-numeric transaction id) |
+| `resource_not_found` | 404 | Downstream 404, e.g. unknown transaction id on the detail BFF |
+| `upstream_unavailable` | 500 | Downstream 502/503/504 mapped by `StatusErrorCodes` |
+| `upstream_contract_violation` | 500 | A downstream payload broke the audited contract (`DownstreamPayload`) |
+| `unconvertible_amount` | 500 | An amount has no rate to convert into ARS |
 | `internal_error` | 500 | Unmapped gateway exception |
