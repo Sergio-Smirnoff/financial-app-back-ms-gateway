@@ -196,7 +196,7 @@ public final class BffMapper {
 
     public static RuleRowResponse toRuleRowResponse(RuleRow r) {
         if (r == null) return null;
-        return new RuleRowResponse(r.id(), r.matcher(), r.categoryId(), r.categoryName(), r.priority());
+        return new RuleRowResponse(r.id(), r.matcher(), r.categoryId(), r.categoryName(), r.matchCount());
     }
 
     public static MarketQuoteResponse toMarketQuoteResponse(MarketQuote q) {
@@ -274,7 +274,7 @@ public final class BffMapper {
 
     public static SessionRowResponse toSessionRowResponse(SessionRow s) {
         if (s == null) return null;
-        return new SessionRowResponse(s.id(), s.device(), s.ip(), s.lastSeenAt(), s.current());
+        return new SessionRowResponse(s.id(), s.device(), s.lastSeenAt(), s.current());
     }
 
     public static SearchHitResponse toSearchHitResponse(SearchHit h) {

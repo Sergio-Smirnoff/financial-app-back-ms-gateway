@@ -1,5 +1,6 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
+import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.UsersGateway;
@@ -19,11 +20,13 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Component
 public class UsersGatewayImpl implements UsersGateway {
 
+    private static final String ACCESS_TOKEN_COOKIE = "access_token";
     private static final ParameterizedTypeReference<GatewayApiResponse<UserPreferencesResponse>> PREFERENCES_TYPE =
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<GatewayApiResponse<List<ManualCurrencyRateResponse>>> RATES_TYPE =
@@ -71,10 +74,11 @@ public class UsersGatewayImpl implements UsersGateway {
     }
 
     @Override
-    public CompletableFuture<List<Map<String, Object>>> fetchSessions(UserId userId) {
+    public CompletableFuture<List<Map<String, Object>>> fetchSessions(UserId userId, Optional<AccessToken> accessToken) {
         return webClient.get()
                 .uri(usersUrl + "/api/v1/users/me/sessions")
                 .header("X-User-Id", userId.value().toString())
+                .cookies(cookies -> accessToken.ifPresent(token -> cookies.add(ACCESS_TOKEN_COOKIE, token.value())))
                 .retrieve()
                 .bodyToMono(LIST_MAP_TYPE)
                 .map(r -> r.data() != null ? r.data() : List.<Map<String, Object>>of())

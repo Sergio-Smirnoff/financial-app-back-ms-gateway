@@ -2,6 +2,7 @@ package com.financialapp.gateway.application.bff;
 
 import com.financialapp.gateway.application.bff.impl.GetSettingsBffUseCaseImpl;
 import com.financialapp.gateway.contracts.DownstreamFixtures;
+import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
@@ -23,16 +24,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SettingsBffTest {
+
+    private static final Optional<AccessToken> CALLER = Optional.of(new AccessToken("header.payload.signature"));
 
     @Mock private UsersGateway users;
     @Mock private BanksGateway banks;
@@ -52,12 +57,12 @@ class SettingsBffTest {
                 DownstreamFixtures.list("investments/broker-fees.json")));
         lenient().when(notifications.fetchNotificationPreferences(any())).thenReturn(CompletableFuture.completedFuture(
                 DownstreamFixtures.list("notifications/preferences-by-category.json")));
-        lenient().when(users.fetchSessions(any())).thenReturn(CompletableFuture.completedFuture(
+        lenient().when(users.fetchSessions(any(), any())).thenReturn(CompletableFuture.completedFuture(
                 DownstreamFixtures.list("users/sessions.json")));
     }
 
     private SettingsBffData settings() {
-        return useCase.execute(new UserId(1L)).join();
+        return useCase.execute(new UserId(1L), CALLER).join();
     }
 
     @Test
@@ -114,7 +119,23 @@ class SettingsBffTest {
         assertThat(session.id()).isEqualTo("12");
         assertThat(session.device()).isEqualTo("Firefox en Linux");
         assertThat(session.lastSeenAt()).isEqualTo(Instant.parse("2026-09-28T11:15:00Z"));
-        assertThat(session.ip()).isNull();
         assertThat(session.current()).isFalse();
+    }
+
+    @Test
+    void theCallersTokenGoesToUsersSoItCanMarkTheCurrentSession() {
+        List<SessionRow> sessions = settings().sessions().data();
+
+        verify(users).fetchSessions(new UserId(1L), CALLER);
+        assertThat(sessions).extracting(SessionRow::id, SessionRow::current)
+                .containsExactly(tuple("12", false), tuple("13", true));
+    }
+
+    @Test
+    void aSessionWithoutItsCurrentFlagMakesTheSessionsUnavailable() {
+        when(users.fetchSessions(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.<String, Object>of("id", 12, "device", "Firefox en Linux", "lastSeenAt", "2026-09-28T11:15:00"))));
+
+        assertThat(settings().sessions().status()).isEqualTo(SectionStatus.UNAVAILABLE);
     }
 }

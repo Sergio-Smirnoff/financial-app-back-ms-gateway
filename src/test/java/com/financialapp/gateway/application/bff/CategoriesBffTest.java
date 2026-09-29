@@ -146,7 +146,7 @@ class CategoriesBffTest {
     }
 
     @Test
-    void rulesReadThePatternAndCarryNoPriority() {
+    void rulesReadThePatternAndTheMatchCount() {
         when(finances.fetchBudgetPace(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchBudgets(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
         when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(
@@ -159,7 +159,20 @@ class CategoriesBffTest {
             assertThat(rule.matcher()).isEqualTo("COTO");
             assertThat(rule.categoryId()).isEqualTo(1L);
             assertThat(rule.categoryName()).isEqualTo("Supermercado");
-            assertThat(rule.priority()).isNull();
+            assertThat(rule.matchCount()).isEqualTo(12);
         });
+    }
+
+    @Test
+    void aRuleWithoutItsMatchCountMakesTheRulesUnavailable() {
+        when(finances.fetchBudgetPace(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchBudgets(any(), any())).thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(finances.fetchCategorizationRules(any())).thenReturn(CompletableFuture.completedFuture(List.of(
+                Map.<String, Object>of("id", 5, "pattern", "COTO", "categoryId", 1, "categoryName", "Supermercado"))));
+
+        CategoriesBffData data = useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+
+        assertThat(data.rules().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(data.budgets().status()).isEqualTo(SectionStatus.OK);
     }
 }

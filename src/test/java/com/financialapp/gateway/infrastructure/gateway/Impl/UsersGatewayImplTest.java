@@ -1,5 +1,6 @@
 package com.financialapp.gateway.infrastructure.gateway.Impl;
 
+import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.currency.Currency;
@@ -10,6 +11,7 @@ import com.financialapp.gateway.infrastructure.config.ServicesProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -18,6 +20,8 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,5 +95,43 @@ class UsersGatewayImplTest {
 
         Map<String, Object> profile = gateway.fetchProfile(new UserId(1L)).join();
         assertThat(profile.get("email")).isEqualTo("ana@example.com");
+    }
+
+    private UsersGatewayImpl gatewayRecording(AtomicReference<ClientRequest> sent) {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    sent.set(request);
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .body("""
+                                    {"status":200,"data":[{"id":13,"device":"Chrome en Linux","current":true,"rememberMe":false,"createdAt":"2026-09-29T09:00:00","lastSeenAt":"2026-09-29T09:30:00"}]}""")
+                            .build());
+                })
+                .build();
+        ServicesProperties services = new ServicesProperties();
+        services.setUsersUrl("http://users.test");
+        return new UsersGatewayImpl(webClient, services, new TimeoutPolicy(Duration.ofSeconds(5)));
+    }
+
+    @Test
+    void fetchSessionsForwardsTheCallersAccessTokenCookie() {
+        AtomicReference<ClientRequest> sent = new AtomicReference<>();
+
+        List<Map<String, Object>> sessions = gatewayRecording(sent)
+                .fetchSessions(new UserId(1L), Optional.of(new AccessToken("header.payload.signature"))).join();
+
+        assertThat(sent.get().url().getPath()).isEqualTo("/api/v1/users/me/sessions");
+        assertThat(sent.get().headers().getFirst("X-User-Id")).isEqualTo("1");
+        assertThat(sent.get().cookies().getFirst("access_token")).isEqualTo("header.payload.signature");
+        assertThat(sessions).singleElement().satisfies(session -> assertThat(session.get("current")).isEqualTo(true));
+    }
+
+    @Test
+    void fetchSessionsSendsNoCookieWhenTheCallerHasNoToken() {
+        AtomicReference<ClientRequest> sent = new AtomicReference<>();
+
+        gatewayRecording(sent).fetchSessions(new UserId(1L), Optional.empty()).join();
+
+        assertThat(sent.get().cookies()).doesNotContainKey("access_token");
     }
 }
