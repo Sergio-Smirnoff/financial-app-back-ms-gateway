@@ -1,11 +1,13 @@
 package com.financialapp.gateway.domain.gateway;
 
+import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.currency.ManualCurrencyRate;
 import com.financialapp.gateway.domain.model.currency.UserDisplayPreferences;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public interface UsersGateway {
@@ -13,7 +15,7 @@ public interface UsersGateway {
 
     CompletableFuture<List<ManualCurrencyRate>> manualCurrencyRates(Long userId);
 
-    CompletableFuture<List<Map<String, Object>>> fetchSessions(UserId userId);
+    CompletableFuture<List<Map<String, Object>>> fetchSessions(UserId userId, Optional<AccessToken> accessToken);
 
     CompletableFuture<Map<String, Object>> fetchPreferences(UserId userId);
 

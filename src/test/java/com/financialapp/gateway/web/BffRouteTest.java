@@ -1,7 +1,10 @@
 package com.financialapp.gateway.web;
 
+import com.financialapp.gateway.domain.common.model.AccessToken;
+import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
+import com.financialapp.gateway.domain.model.bff.SettingsBffData;
 import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.bff.TransactionsBffData;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
@@ -17,6 +20,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.time.Clock;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -96,5 +101,40 @@ class BffRouteTest {
         assertThat(captured.getValue().method()).isEqualTo("CREDIT_CARD");
         assertThat(captured.getValue().query()).isEqualTo("super");
         assertThat(captured.getValue().page()).isEqualTo(1);
+    }
+
+    private static SettingsBffData emptySettings() {
+        ObservedAt stamp = ObservedAt.now(Clock.systemUTC());
+        return new SettingsBffData(
+                Section.ok(UserProfile.empty(), stamp),
+                Section.ok(UserPreferences.empty(), stamp),
+                Section.ok(FeesSummary.empty(), stamp),
+                Section.ok(List.of(), stamp),
+                Section.ok(List.of(), stamp));
+    }
+
+    @Test
+    void settingsRoutePassesTheAccessTokenCookieToTheUseCase() {
+        when(getSettingsBffUseCase.execute(any(), any())).thenReturn(CompletableFuture.completedFuture(emptySettings()));
+
+        webTestClient.get().uri("/api/v1/bff/settings")
+                .header("X-User-Id", "1")
+                .cookie("access_token", "header.payload.signature")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(getSettingsBffUseCase).execute(new UserId(1L), Optional.of(new AccessToken("header.payload.signature")));
+    }
+
+    @Test
+    void settingsRouteWithoutTheCookieStillAnswers() {
+        when(getSettingsBffUseCase.execute(any(), any())).thenReturn(CompletableFuture.completedFuture(emptySettings()));
+
+        webTestClient.get().uri("/api/v1/bff/settings")
+                .header("X-User-Id", "1")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(getSettingsBffUseCase).execute(new UserId(1L), Optional.empty());
     }
 }

@@ -1,5 +1,6 @@
 package com.financialapp.gateway.application.bff.impl;
 
+import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.BanksGateway;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
@@ -65,7 +66,7 @@ public class GetSettingsBffUseCaseImpl implements GetSettingsBffUseCase {
     }
 
     @Override
-    public CompletableFuture<SettingsBffData> execute(UserId userId) {
+    public CompletableFuture<SettingsBffData> execute(UserId userId, Optional<AccessToken> accessToken) {
         CompletableFuture<Section<UserProfile>> profileSec = applyBudget(
                 Section.guard(
                         users.fetchProfile(userId).thenApply(raw -> {
@@ -127,13 +128,13 @@ public class GetSettingsBffUseCaseImpl implements GetSettingsBffUseCase {
 
         CompletableFuture<Section<List<SessionRow>>> sessionsSec = applyBudget(
                 Section.guard(
-                        users.fetchSessions(userId)
+                        users.fetchSessions(userId, accessToken)
                                 .thenApply(rows -> DownstreamPayload.rows(SESSIONS_SOURCE, rows).stream()
                                         .map(session -> new SessionRow(
                                                 session.text("id"),
                                                 session.textOr("device", ""),
                                                 session.instant("lastSeenAt"),
-                                                session.flagOr("current", false)))
+                                                session.flag("current")))
                                         .toList()),
                         List.of(), clock),
                 List.of());
