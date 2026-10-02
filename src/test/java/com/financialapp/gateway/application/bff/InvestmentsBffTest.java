@@ -164,6 +164,31 @@ class InvestmentsBffTest {
 
         assertThat(data.composition().status()).isEqualTo(SectionStatus.UNAVAILABLE);
         assertThat(data.kpis().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(data.positions().status()).isEqualTo(SectionStatus.OK);
+    }
+
+    @Test
+    void aSliceWithZeroCostHasZeroPnlPctAndKeepsItsShare() {
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
+                "byCurrency", List.of(Map.of(
+                        "currency", "ARS", "totalValue", "1000.00", "totalCost", "600.00",
+                        "breakdown", List.of(
+                                Map.of("assetType", "BOND", "totalValue", "250.00",
+                                        "totalCost", "0", "count", 1),
+                                Map.of("assetType", "STOCK", "totalValue", "750.00",
+                                        "totalCost", "600.00", "count", 2)))))));
+
+        InvestmentsBffData data = inArs();
+
+        assertThat(data.composition().status()).isEqualTo(SectionStatus.OK);
+        List<AssetTypeSlice> slices = data.composition().data();
+        assertThat(slices).extracting(AssetTypeSlice::assetType).containsExactly("BOND", "STOCK");
+        AssetTypeSlice bonds = slices.get(0);
+        assertThat(bonds.cost().amount()).isEqualByComparingTo("0");
+        assertThat(bonds.pnl().amount()).isEqualByComparingTo("250.00");
+        assertThat(bonds.pnlPct()).isEqualByComparingTo("0");
+        assertThat(bonds.pct()).isEqualByComparingTo("25.00");
+        assertThat(slices.get(1).pct()).isEqualByComparingTo("75.00");
     }
 
     @Test
