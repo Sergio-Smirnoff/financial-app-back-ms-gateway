@@ -14,6 +14,7 @@ import com.financialapp.gateway.domain.model.bff.BffDomainModels.MarketQuoteUnit
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.OperationKind;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.OperationRow;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.PositionRow;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.bff.InvestmentsBffData;
 import com.financialapp.gateway.domain.model.composition.PageTimeoutBudget;
 import com.financialapp.gateway.domain.model.composition.SectionStatus;
@@ -40,6 +41,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,7 +62,7 @@ class InvestmentsBffTest {
                 .thenReturn(CompletableFuture.completedFuture(Map.of("indices", List.of())));
         lenient().when(investments.fetchPortfolioSummary(any()))
                 .thenReturn(CompletableFuture.completedFuture(DownstreamFixtures.object("investments/portfolio-summary.json")));
-        lenient().when(investments.fetchPortfolioEvolution(any()))
+        lenient().when(investments.fetchPortfolioEvolution(any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(DownstreamFixtures.list("investments/portfolio-evolution.json")));
         lenient().when(investments.fetchHoldings(any()))
                 .thenReturn(CompletableFuture.completedFuture(DownstreamFixtures.list("investments/portfolio-holdings.json")));
@@ -69,7 +71,7 @@ class InvestmentsBffTest {
     }
 
     private InvestmentsBffData inArs() {
-        return useCase.execute(new UserId(1L), CurrencyView.ARS, "none").join();
+        return useCase.execute(new UserId(1L), CurrencyView.ARS, "none", HistoryRange.ONE_MONTH).join();
     }
 
     @Test
@@ -254,7 +256,7 @@ class InvestmentsBffTest {
     void theUsdViewConvertsTheTotalsAtTheViewRate() {
         when(investments.fetchFxRate(eq(CurrencyView.USD_MEP), any())).thenReturn(CompletableFuture.completedFuture(MEP));
 
-        InvestmentsKpis kpis = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "none").join().kpis().data();
+        InvestmentsKpis kpis = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "none", HistoryRange.ONE_MONTH).join().kpis().data();
 
         assertThat(kpis.marketValue().currency()).isEqualTo(Currency.USD);
         assertThat(kpis.marketValue().amount()).isEqualByComparingTo("8529.51");
@@ -300,5 +302,12 @@ class InvestmentsBffTest {
         assertThat(alerts).extracting(AlertRow::title).containsExactly("YPFD +8%");
         assertThat(alerts.get(0).createdAt()).isEqualTo(Instant.parse("2026-09-28T12:30:00Z"));
         assertThat(alerts.get(0).read()).isFalse();
+    }
+
+    @Test
+    void evolutionFetchesTheRequestedRange() {
+        useCase.execute(new UserId(1L), CurrencyView.ARS, "none", HistoryRange.THREE_MONTHS).join();
+
+        verify(investments).fetchPortfolioEvolution(new UserId(1L), HistoryRange.THREE_MONTHS);
     }
 }

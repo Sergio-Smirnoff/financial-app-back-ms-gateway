@@ -25,6 +25,7 @@ Route mappings, BFF endpoints, and gateway error normalization. Envelope shape: 
 | GET | `/api/v1/dashboard/data` | Aggregated dashboard view (finances + banks + FX) with partial degradation | ms-finances, ms-banks, ms-investments |
 | GET | `/api/v1/bff/currencies` | Available currencies list & default selector options | ms-banks, ms-investments, ms-users |
 | GET | `/api/v1/bff/transactions` | Paginated transactions with summary, filter options, and uncategorised count (`?page=&size=&categories=&accounts=&method=&q=&from=&to=&currency=&secondary=`). Page metadata (`totalPages = ceil(totalElements / size)`) is derived because ms-finances returns cursor paging. `filterOptions` calls ms-banks (`fetchAccounts`) for the account list. | ms-finances, ms-investments, ms-banks |
+| GET | `/api/v1/bff/investments` | Investments page sections: market strip, KPIs, evolution, positions (with `assetType`), composition per asset type (cost, P&L, count), recent operations, alerts (`?currency=&secondary=&range=`). `range` = `1M`\|`3M`\|`1A` → evolution over the last 30/90/365 days (`GET /portfolio/evolution?days=`); missing or unknown → `1M`. | ms-investments, ms-notifications |
 
 ## BFF composition notes
 

@@ -5,6 +5,7 @@ import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.AssetTypeTotals;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.bff.InvestmentsBffData;
 import com.financialapp.gateway.domain.model.bff.PortfolioSummary;
 import com.financialapp.gateway.domain.model.bff.PortfolioValuePoint;
@@ -61,7 +62,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
     }
 
     @Override
-    public CompletableFuture<InvestmentsBffData> execute(UserId userId, CurrencyView currencyView, String secondary) {
+    public CompletableFuture<InvestmentsBffData> execute(UserId userId, CurrencyView currencyView, String secondary, HistoryRange range) {
         LocalDate today = LocalDate.now(clock);
 
         CompletableFuture<Optional<FxRate>> fxRateFuture = currencyView != CurrencyView.ARS ?
@@ -71,7 +72,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                 .thenApply(PortfolioFigures::summary);
         CompletableFuture<Optional<FxRate>> summaryRateFuture = summaryFuture.thenCompose(summary ->
                 PortfolioFigures.usdRate(summary.needsUsdRate(), currencyView, fxRateFuture, investments, today));
-        CompletableFuture<List<PortfolioValuePoint>> evolutionFuture = investments.fetchPortfolioEvolution(userId)
+        CompletableFuture<List<PortfolioValuePoint>> evolutionFuture = investments.fetchPortfolioEvolution(userId, range)
                 .thenApply(PortfolioFigures::evolution);
         CompletableFuture<Optional<FxRate>> evolutionRateFuture = evolutionFuture.thenCompose(points ->
                 PortfolioFigures.usdRate(points.stream().anyMatch(point -> point.marketValue().needsUsdRate()),

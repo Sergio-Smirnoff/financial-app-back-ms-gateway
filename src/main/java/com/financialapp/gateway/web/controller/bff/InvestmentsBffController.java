@@ -2,6 +2,7 @@ package com.financialapp.gateway.web.controller.bff;
 
 import com.financialapp.commons.core.response.ApiResponse;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.usecase.bff.GetInvestmentsBffUseCase;
 import com.financialapp.gateway.web.dto.response.bff.InvestmentsBffResponse;
@@ -31,7 +32,8 @@ public class InvestmentsBffController {
     public Mono<ApiResponse<InvestmentsBffResponse>> getInvestments(
             @RequestHeader("X-User-Id") Long userId,
             @RequestParam(value = "currency", defaultValue = "ARS") String currencyStr,
-            @RequestParam(value = "secondary", defaultValue = "none") String secondary) {
+            @RequestParam(value = "secondary", defaultValue = "none") String secondary,
+            @RequestParam(value = "range", defaultValue = "1M") String range) {
 
         CurrencyView view;
         try {
@@ -40,7 +42,7 @@ public class InvestmentsBffController {
             view = CurrencyView.ARS;
         }
 
-        return Mono.fromFuture(getInvestmentsBffUseCase.execute(new UserId(userId), view, secondary))
+        return Mono.fromFuture(getInvestmentsBffUseCase.execute(new UserId(userId), view, secondary, HistoryRange.fromParam(range)))
                 .map(data -> ApiResponse.ok(new InvestmentsBffResponse(
                         BffMapper.toSectionResponse(data.marketStrip(), list -> list.stream().map(BffMapper::toMarketQuoteResponse).toList()),
                         BffMapper.toSectionResponse(data.kpis(), BffMapper::toInvestmentsKpisResponse),

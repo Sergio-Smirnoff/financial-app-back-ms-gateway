@@ -3,6 +3,7 @@ package com.financialapp.gateway.web;
 import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.bff.InvestmentsBffData;
 import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
@@ -30,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -152,7 +154,7 @@ class BffRouteTest {
                 new BigDecimal("-8.27"), new BigDecimal("8.49"), 1);
         PositionRow row = new PositionRow(7L, "AO29", "Bono", new BigDecimal("687"), null, null, null, null,
                 BigDecimal.ZERO, "017", "BOND");
-        when(getInvestmentsBffUseCase.execute(any(), any(), any()))
+        when(getInvestmentsBffUseCase.execute(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(new InvestmentsBffData(
                         Section.ok(List.of(), stamp), Section.ok(InvestmentsKpis.empty(), stamp),
                         Section.ok(List.of(), stamp), Section.ok(List.of(row), stamp),
@@ -173,5 +175,28 @@ class BffRouteTest {
                 .jsonPath("$.data.composition.data[0].pct").isEqualTo(8.49)
                 .jsonPath("$.data.composition.data[0].count").isEqualTo(1)
                 .jsonPath("$.data.positions.data[0].assetType").isEqualTo("BOND");
+    }
+
+    @Test
+    void investmentsRouteReadsTheRangeAndDefaultsToOneMonth() {
+        ObservedAt stamp = ObservedAt.now(Clock.systemUTC());
+        InvestmentsBffData empty = new InvestmentsBffData(
+                Section.ok(List.of(), stamp), Section.ok(InvestmentsKpis.empty(), stamp),
+                Section.ok(List.of(), stamp), Section.ok(List.of(), stamp), Section.ok(List.of(), stamp),
+                Section.ok(List.of(), stamp), Section.ok(List.of(), stamp));
+        when(getInvestmentsBffUseCase.execute(any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(empty));
+
+        webTestClient.get().uri("/api/v1/bff/investments?range=1A").header("X-User-Id", "1")
+                .exchange().expectStatus().isOk();
+        webTestClient.get().uri("/api/v1/bff/investments").header("X-User-Id", "1")
+                .exchange().expectStatus().isOk();
+        webTestClient.get().uri("/api/v1/bff/investments?range=nonsense").header("X-User-Id", "1")
+                .exchange().expectStatus().isOk();
+
+        ArgumentCaptor<HistoryRange> ranges = ArgumentCaptor.forClass(HistoryRange.class);
+        verify(getInvestmentsBffUseCase, times(3)).execute(any(), any(), any(), ranges.capture());
+        assertThat(ranges.getAllValues())
+                .containsExactly(HistoryRange.ONE_YEAR, HistoryRange.ONE_MONTH, HistoryRange.ONE_MONTH);
     }
 }

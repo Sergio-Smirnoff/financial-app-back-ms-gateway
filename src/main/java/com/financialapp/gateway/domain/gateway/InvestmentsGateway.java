@@ -1,6 +1,7 @@
 package com.financialapp.gateway.domain.gateway;
 
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
@@ -23,7 +24,7 @@ public interface InvestmentsGateway {
 
     CompletableFuture<List<Map<String, Object>>> fetchHoldings(UserId userId);
 
-    CompletableFuture<List<Map<String, Object>>> fetchPortfolioEvolution(UserId userId);
+    CompletableFuture<List<Map<String, Object>>> fetchPortfolioEvolution(UserId userId, HistoryRange range);
 
     CompletableFuture<Map<String, Object>> fetchMarketPanel();
 
