@@ -46,7 +46,7 @@ public class InvestmentsBffController {
                         BffMapper.toSectionResponse(data.kpis(), BffMapper::toInvestmentsKpisResponse),
                         BffMapper.toSectionResponse(data.evolution(), list -> list.stream().map(BffMapper::toEvolutionPointResponse).toList()),
                         BffMapper.toSectionResponse(data.positions(), list -> list.stream().map(BffMapper::toPositionRowResponse).toList()),
-                        BffMapper.toSectionResponse(data.composition(), list -> list.stream().map(BffMapper::toCompositionSliceResponse).toList()),
+                        BffMapper.toSectionResponse(data.composition(), list -> list.stream().map(BffMapper::toAssetTypeSliceResponse).toList()),
                         BffMapper.toSectionResponse(data.recentOperations(), list -> list.stream().map(BffMapper::toOperationRowResponse).toList()),
                         BffMapper.toSectionResponse(data.alerts(), list -> list.stream().map(BffMapper::toAlertRowResponse).toList()))));
     }

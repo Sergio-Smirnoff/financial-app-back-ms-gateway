@@ -5,14 +5,14 @@ import java.util.Map;
 public record PortfolioSummary(
         CurrencyAmounts marketValue,
         CurrencyAmounts cost,
-        Map<String, CurrencyAmounts> marketValueByAssetType
+        Map<String, AssetTypeTotals> byAssetType
 ) {
 
     public PortfolioSummary {
-        if (marketValue == null || cost == null || marketValueByAssetType == null) {
-            throw new IllegalArgumentException("marketValue, cost and marketValueByAssetType required");
+        if (marketValue == null || cost == null || byAssetType == null) {
+            throw new IllegalArgumentException("marketValue, cost and byAssetType required");
         }
-        marketValueByAssetType = Map.copyOf(marketValueByAssetType);
+        byAssetType = Map.copyOf(byAssetType);
     }
 
     public boolean needsUsdRate() {

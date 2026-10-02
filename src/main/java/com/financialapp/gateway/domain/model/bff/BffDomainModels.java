@@ -74,6 +74,7 @@ public class BffDomainModels {
 
     public record ImportHealthRow(String cbu, String alias, Instant lastImportAt, Long daysSince, ImportStatus status) {}
     public record CompositionSlice(String label, MoneyFigure amount, BigDecimal pct) {}
+    public record AssetTypeSlice(String label, String assetType, MoneyFigure amount, MoneyFigure cost, MoneyFigure pnl, BigDecimal pnlPct, BigDecimal pct, Integer count) {}
     public record CalendarEntry(LocalDate date, String label, MoneyFigure amount, String kind) {}
 
     public record TransactionsSummary(MoneyFigure income, MoneyFigure expense, MoneyFigure net, Long count) {
@@ -129,7 +130,7 @@ public class BffDomainModels {
     }
 
     public record EvolutionPoint(LocalDate date, MoneyFigure marketValue, MoneyFigure cost) {}
-    public record PositionRow(Long holdingId, String ticker, String name, BigDecimal quantity, MoneyFigure avgCost, MoneyFigure price, MoneyFigure marketValue, MoneyFigure pnl, BigDecimal pnlPct, String bankNumber) {}
+    public record PositionRow(Long holdingId, String ticker, String name, BigDecimal quantity, MoneyFigure avgCost, MoneyFigure price, MoneyFigure marketValue, MoneyFigure pnl, BigDecimal pnlPct, String bankNumber, String assetType) {}
     public record OperationRow(Long holdingId, String ticker, OperationKind kind, LocalDate date, BigDecimal quantity, MoneyFigure amount) {}
     public record AlertRow(Long id, String title, String message, Instant createdAt, Boolean read) {}
 

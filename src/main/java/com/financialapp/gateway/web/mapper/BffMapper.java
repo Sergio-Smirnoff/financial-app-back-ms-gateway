@@ -149,6 +149,11 @@ public final class BffMapper {
         return new CompositionSliceResponse(c.label(), toMoneyView(c.amount()), c.pct());
     }
 
+    public static AssetTypeSliceResponse toAssetTypeSliceResponse(AssetTypeSlice s) {
+        if (s == null) return null;
+        return new AssetTypeSliceResponse(s.label(), s.assetType(), toMoneyView(s.amount()), toMoneyView(s.cost()), toMoneyView(s.pnl()), s.pnlPct(), s.pct(), s.count());
+    }
+
     public static CalendarEntryResponse toCalendarEntryResponse(CalendarEntry e) {
         if (e == null) return null;
         return new CalendarEntryResponse(e.date(), e.label(), toMoneyView(e.amount()), e.kind());
@@ -216,7 +221,7 @@ public final class BffMapper {
 
     public static PositionRowResponse toPositionRowResponse(PositionRow p) {
         if (p == null) return null;
-        return new PositionRowResponse(p.holdingId(), p.ticker(), p.name(), p.quantity(), toMoneyView(p.avgCost()), toMoneyView(p.price()), toMoneyView(p.marketValue()), toMoneyView(p.pnl()), p.pnlPct(), p.bankNumber());
+        return new PositionRowResponse(p.holdingId(), p.ticker(), p.name(), p.quantity(), toMoneyView(p.avgCost()), toMoneyView(p.price()), toMoneyView(p.marketValue()), toMoneyView(p.pnl()), p.pnlPct(), p.bankNumber(), p.assetType());
     }
 
     public static OperationRowResponse toOperationRowResponse(OperationRow o) {

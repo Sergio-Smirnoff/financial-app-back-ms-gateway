@@ -6,7 +6,7 @@ import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.AlertRow;
-import com.financialapp.gateway.domain.model.bff.BffDomainModels.CompositionSlice;
+import com.financialapp.gateway.domain.model.bff.BffDomainModels.AssetTypeSlice;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.EvolutionPoint;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.InvestmentsKpis;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.MarketQuote;
@@ -118,14 +118,84 @@ class InvestmentsBffTest {
     }
 
     @Test
-    void compositionSlicesComeFromEachBucketsBreakdown() {
-        List<CompositionSlice> slices = inArs().composition().data();
+    void compositionSlicesComeFromEachBucketsBreakdownWithCostPnlAndCount() {
+        List<AssetTypeSlice> slices = inArs().composition().data();
 
-        assertThat(slices).extracting(CompositionSlice::label).containsExactly("BOND", "CEDEAR");
-        assertThat(slices.get(0).amount().amount()).isEqualByComparingTo("904779.00");
-        assertThat(slices.get(0).pct()).isEqualByComparingTo("8.49");
-        assertThat(slices.get(1).amount().amount()).isEqualByComparingTo("9757113.60");
-        assertThat(slices.get(1).pct()).isEqualByComparingTo("91.51");
+        assertThat(slices).extracting(AssetTypeSlice::assetType).containsExactly("BOND", "CEDEAR");
+        assertThat(slices).extracting(AssetTypeSlice::label).containsExactly("BOND", "CEDEAR");
+        AssetTypeSlice bonds = slices.get(0);
+        assertThat(bonds.amount().amount()).isEqualByComparingTo("904779.00");
+        assertThat(bonds.cost().amount()).isEqualByComparingTo("986380.86");
+        assertThat(bonds.pnl().amount()).isEqualByComparingTo("-81601.86");
+        assertThat(bonds.pnlPct()).isEqualByComparingTo("-8.27");
+        assertThat(bonds.pct()).isEqualByComparingTo("8.49");
+        assertThat(bonds.count()).isEqualTo(1);
+        AssetTypeSlice cedears = slices.get(1);
+        assertThat(cedears.amount().amount()).isEqualByComparingTo("9757113.60");
+        assertThat(cedears.cost().amount()).isEqualByComparingTo("9189497.45");
+        assertThat(cedears.pnl().amount()).isEqualByComparingTo("567616.15");
+        assertThat(cedears.pnlPct()).isEqualByComparingTo("6.18");
+        assertThat(cedears.pct()).isEqualByComparingTo("91.51");
+        assertThat(cedears.count()).isEqualTo(5);
+    }
+
+    @Test
+    void theSlicesAddUpToTheKpis() {
+        InvestmentsBffData data = inArs();
+
+        BigDecimal amounts = data.composition().data().stream()
+                .map(slice -> slice.amount().amount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal costs = data.composition().data().stream()
+                .map(slice -> slice.cost().amount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(amounts).isEqualByComparingTo(data.kpis().data().marketValue().amount());
+        assertThat(costs).isEqualByComparingTo(data.kpis().data().cost().amount());
+    }
+
+    @Test
+    void aBreakdownWithoutCostIsUnavailableNotZero() {
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
+                "byCurrency", List.of(Map.of(
+                        "currency", "ARS", "totalValue", "100", "totalCost", "80",
+                        "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "100", "count", 1)))))));
+
+        InvestmentsBffData data = inArs();
+
+        assertThat(data.composition().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+        assertThat(data.kpis().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+    }
+
+    @Test
+    void positionsCarryTheirAssetType() {
+        assertThat(inArs().positions().data().get(0).assetType()).isEqualTo("BOND");
+    }
+
+    @Test
+    void sameTypeInBothBucketsMergesIntoOneSlice() {
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
+                "byCurrency", List.of(
+                        Map.of("currency", "ARS", "totalValue", "1000000.00", "totalCost", "800000.00",
+                                "totalPl", "200000.00", "plPercent", "25.0000",
+                                "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "1000000.00",
+                                        "totalCost", "800000.00", "totalPl", "200000.00",
+                                        "percentage", "100.0000", "count", 2))),
+                        Map.of("currency", "USD", "totalValue", "100.00", "totalCost", "120.00",
+                                "totalPl", "-20.00", "plPercent", "-16.6700",
+                                "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "100.00",
+                                        "totalCost", "120.00", "totalPl", "-20.00",
+                                        "percentage", "100.0000", "count", 1)))))));
+        when(investments.fetchFxRate(eq(CurrencyView.USD_MEP), any())).thenReturn(CompletableFuture.completedFuture(MEP));
+
+        List<AssetTypeSlice> slices = inArs().composition().data();
+
+        assertThat(slices).hasSize(1);
+        AssetTypeSlice stocks = slices.get(0);
+        assertThat(stocks.assetType()).isEqualTo("STOCK");
+        assertThat(stocks.amount().amount()).isEqualByComparingTo("1120000.00");
+        assertThat(stocks.cost().amount()).isEqualByComparingTo("944000.00");
+        assertThat(stocks.pnl().amount()).isEqualByComparingTo("176000.00");
+        assertThat(stocks.pnlPct()).isEqualByComparingTo("18.64");
+        assertThat(stocks.pct()).isEqualByComparingTo("100.00");
+        assertThat(stocks.count()).isEqualTo(3);
     }
 
     @Test
@@ -141,11 +211,18 @@ class InvestmentsBffTest {
         assertThat(kpis.cost().amount()).isEqualByComparingTo("944000.00");
         assertThat(kpis.pnl().amount()).isEqualByComparingTo("176000.00");
         assertThat(kpis.pnlPct()).isEqualByComparingTo("18.64");
-        List<CompositionSlice> slices = data.composition().data();
-        assertThat(slices).extracting(CompositionSlice::label).containsExactly("CEDEAR", "STOCK");
+        List<AssetTypeSlice> slices = data.composition().data();
+        assertThat(slices).extracting(AssetTypeSlice::assetType).containsExactly("CEDEAR", "STOCK");
         assertThat(slices.get(0).amount().amount()).isEqualByComparingTo("120000.00");
+        assertThat(slices.get(0).cost().amount()).isEqualByComparingTo("144000.00");
+        assertThat(slices.get(0).pnl().amount()).isEqualByComparingTo("-24000.00");
+        assertThat(slices.get(0).pnlPct()).isEqualByComparingTo("-16.67");
         assertThat(slices.get(0).pct()).isEqualByComparingTo("10.71");
+        assertThat(slices.get(0).count()).isEqualTo(1);
+        assertThat(slices.get(1).cost().amount()).isEqualByComparingTo("800000.00");
+        assertThat(slices.get(1).pnlPct()).isEqualByComparingTo("25.00");
         assertThat(slices.get(1).pct()).isEqualByComparingTo("89.29");
+        assertThat(slices.get(1).count()).isEqualTo(2);
     }
 
     @Test
