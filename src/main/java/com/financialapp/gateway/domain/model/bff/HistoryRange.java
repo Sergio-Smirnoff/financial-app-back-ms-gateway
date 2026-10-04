@@ -1,5 +1,8 @@
 package com.financialapp.gateway.domain.model.bff;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 public enum HistoryRange {
     ONE_MONTH("1M", 30),
     THREE_MONTHS("3M", 90),
@@ -17,16 +20,10 @@ public enum HistoryRange {
         return days;
     }
 
-    public static HistoryRange fromParam(String raw) {
-        if (raw == null) {
-            return ONE_MONTH;
-        }
-        String trimmed = raw.trim();
-        for (HistoryRange range : values()) {
-            if (range.selector.equalsIgnoreCase(trimmed)) {
-                return range;
-            }
-        }
-        return ONE_MONTH;
+    public static Optional<HistoryRange> fromSelector(String selector) {
+        String trimmed = selector.trim();
+        return Arrays.stream(values())
+                .filter(range -> range.selector.equalsIgnoreCase(trimmed))
+                .findFirst();
     }
 }

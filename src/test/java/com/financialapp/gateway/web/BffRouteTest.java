@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -178,7 +177,21 @@ class BffRouteTest {
     }
 
     @Test
-    void investmentsRouteReadsTheRangeAndDefaultsToOneMonth() {
+    void investmentsRouteMapsAKnownRangeSelector() {
+        assertThat(rangeRequestedBy("/api/v1/bff/investments?range=1A")).isEqualTo(HistoryRange.ONE_YEAR);
+    }
+
+    @Test
+    void investmentsRouteDefaultsAMissingRangeToOneMonth() {
+        assertThat(rangeRequestedBy("/api/v1/bff/investments")).isEqualTo(HistoryRange.ONE_MONTH);
+    }
+
+    @Test
+    void investmentsRouteFallsBackToOneMonthOnAnUnknownRange() {
+        assertThat(rangeRequestedBy("/api/v1/bff/investments?range=nonsense")).isEqualTo(HistoryRange.ONE_MONTH);
+    }
+
+    private HistoryRange rangeRequestedBy(String uri) {
         ObservedAt stamp = ObservedAt.now(Clock.systemUTC());
         InvestmentsBffData empty = new InvestmentsBffData(
                 Section.ok(List.of(), stamp), Section.ok(InvestmentsKpis.empty(), stamp),
@@ -187,16 +200,11 @@ class BffRouteTest {
         when(getInvestmentsBffUseCase.execute(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(empty));
 
-        webTestClient.get().uri("/api/v1/bff/investments?range=1A").header("X-User-Id", "1")
-                .exchange().expectStatus().isOk();
-        webTestClient.get().uri("/api/v1/bff/investments").header("X-User-Id", "1")
-                .exchange().expectStatus().isOk();
-        webTestClient.get().uri("/api/v1/bff/investments?range=nonsense").header("X-User-Id", "1")
+        webTestClient.get().uri(uri).header("X-User-Id", "1")
                 .exchange().expectStatus().isOk();
 
         ArgumentCaptor<HistoryRange> ranges = ArgumentCaptor.forClass(HistoryRange.class);
-        verify(getInvestmentsBffUseCase, times(3)).execute(any(), any(), any(), ranges.capture());
-        assertThat(ranges.getAllValues())
-                .containsExactly(HistoryRange.ONE_YEAR, HistoryRange.ONE_MONTH, HistoryRange.ONE_MONTH);
+        verify(getInvestmentsBffUseCase).execute(any(), any(), any(), ranges.capture());
+        return ranges.getValue();
     }
 }

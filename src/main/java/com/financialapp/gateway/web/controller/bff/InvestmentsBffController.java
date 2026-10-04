@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/v1/bff/investments")
 @Tag(name = "BFF - Investments", description = "Inversiones Page BFF Composition Endpoint")
@@ -33,7 +35,7 @@ public class InvestmentsBffController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestParam(value = "currency", defaultValue = "ARS") String currencyStr,
             @RequestParam(value = "secondary", defaultValue = "none") String secondary,
-            @RequestParam(value = "range", defaultValue = "1M") String range) {
+            @RequestParam(value = "range", required = false) String range) {
 
         CurrencyView view;
         try {
@@ -41,8 +43,11 @@ public class InvestmentsBffController {
         } catch (Exception e) {
             view = CurrencyView.ARS;
         }
+        HistoryRange historyRange = Optional.ofNullable(range)
+                .flatMap(HistoryRange::fromSelector)
+                .orElse(HistoryRange.ONE_MONTH);
 
-        return Mono.fromFuture(getInvestmentsBffUseCase.execute(new UserId(userId), view, secondary, HistoryRange.fromParam(range)))
+        return Mono.fromFuture(getInvestmentsBffUseCase.execute(new UserId(userId), view, secondary, historyRange))
                 .map(data -> ApiResponse.ok(new InvestmentsBffResponse(
                         BffMapper.toSectionResponse(data.marketStrip(), list -> list.stream().map(BffMapper::toMarketQuoteResponse).toList()),
                         BffMapper.toSectionResponse(data.kpis(), BffMapper::toInvestmentsKpisResponse),
