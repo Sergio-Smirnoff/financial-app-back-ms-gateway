@@ -107,7 +107,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                         summaryFuture.thenCombine(summaryRateFuture, (summary, rate) -> {
                             BigDecimal marketValue = BffMoneyConverter.toArs(summary.marketValue(), rate);
                             BigDecimal cost = BffMoneyConverter.toArs(summary.cost(), rate);
-                            BigDecimal pnl = marketValue.subtract(cost);
+                            BigDecimal pnl = BffMoneyConverter.toArs(summary.pnl(), rate);
                             return new InvestmentsKpis(
                                     BffMoneyConverter.convert(marketValue, Currency.ARS, currencyView, secondary, rate),
                                     BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, rate),
@@ -155,7 +155,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                                         AssetTypeTotals totals = slice.getValue();
                                         BigDecimal amount = BffMoneyConverter.toArs(totals.marketValue(), rate);
                                         BigDecimal cost = BffMoneyConverter.toArs(totals.cost(), rate);
-                                        BigDecimal pnl = amount.subtract(cost);
+                                        BigDecimal pnl = BffMoneyConverter.toArs(totals.pnl(), rate);
                                         return new AssetTypeSlice(slice.getKey(), slice.getKey(),
                                                 BffMoneyConverter.convert(amount, Currency.ARS, currencyView, secondary, rate),
                                                 BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, rate),

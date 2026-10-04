@@ -168,15 +168,28 @@ class InvestmentsBffTest {
     }
 
     @Test
+    void aBreakdownWithoutTotalPlIsUnavailableNotDerived() {
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
+                "byCurrency", List.of(Map.of(
+                        "currency", "ARS", "totalValue", "100", "totalCost", "80",
+                        "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "100",
+                                "totalCost", "80", "count", 1)))))));
+
+        InvestmentsBffData data = inArs();
+
+        assertThat(data.composition().status()).isEqualTo(SectionStatus.UNAVAILABLE);
+    }
+
+    @Test
     void aSliceWithZeroCostHasZeroPnlPctAndKeepsItsShare() {
         when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
                 "byCurrency", List.of(Map.of(
-                        "currency", "ARS", "totalValue", "1000.00", "totalCost", "600.00",
+                        "currency", "ARS", "totalValue", "1000.00", "totalCost", "600.00", "totalPl", "400.00",
                         "breakdown", List.of(
                                 Map.of("assetType", "BOND", "totalValue", "250.00",
-                                        "totalCost", "0", "count", 1),
+                                        "totalCost", "0", "totalPl", "250.00", "count", 1),
                                 Map.of("assetType", "STOCK", "totalValue", "750.00",
-                                        "totalCost", "600.00", "count", 2)))))));
+                                        "totalCost", "600.00", "totalPl", "150.00", "count", 2)))))));
 
         InvestmentsBffData data = inArs();
 
@@ -223,6 +236,65 @@ class InvestmentsBffTest {
         assertThat(stocks.pnlPct()).isEqualByComparingTo("18.64");
         assertThat(stocks.pct()).isEqualByComparingTo("100.00");
         assertThat(stocks.count()).isEqualTo(3);
+    }
+
+    @Test
+    void slicePnlIsTheTotalPlOfMsInvestmentsConvertedAndMergedNotValueMinusCost() {
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
+                "byCurrency", List.of(
+                        Map.of("currency", "ARS", "totalValue", "1000000.00", "totalCost", "800000.00",
+                                "totalPl", "199999.99", "plPercent", "25.0000",
+                                "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "1000000.00",
+                                        "totalCost", "800000.00", "totalPl", "199999.99",
+                                        "percentage", "100.0000", "count", 2))),
+                        Map.of("currency", "USD", "totalValue", "100.00", "totalCost", "120.00",
+                                "totalPl", "-20.01", "plPercent", "-16.6700",
+                                "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "100.00",
+                                        "totalCost", "120.00", "totalPl", "-20.01",
+                                        "percentage", "100.0000", "count", 1)))))));
+        when(investments.fetchFxRate(eq(CurrencyView.USD_MEP), any())).thenReturn(CompletableFuture.completedFuture(MEP));
+
+        AssetTypeSlice inArs = inArs().composition().data().get(0);
+        AssetTypeSlice inUsd = useCase.execute(new UserId(1L), CurrencyView.USD_MEP, "ARS", HistoryRange.ONE_MONTH)
+                .join().composition().data().get(0);
+
+        assertThat(inArs.amount().amount()).isEqualByComparingTo("1120000.00");
+        assertThat(inArs.cost().amount()).isEqualByComparingTo("944000.00");
+        assertThat(inArs.pnl().amount()).isEqualByComparingTo("175987.99");
+        assertThat(inArs.pnl().currency()).isEqualTo(Currency.ARS);
+        assertThat(inArs.pnlPct()).isEqualByComparingTo("18.64");
+        assertThat(inArs.count()).isEqualTo(3);
+        assertThat(inUsd.pnl().amount()).isEqualByComparingTo("140.79");
+        assertThat(inUsd.pnl().currency()).isEqualTo(Currency.USD);
+        assertThat(inUsd.pnl().secondary().amount()).isEqualByComparingTo("175987.99");
+        assertThat(inUsd.pnl().secondary().currency()).isEqualTo(Currency.ARS);
+        assertThat(inUsd.pnlPct()).isEqualByComparingTo("18.64");
+    }
+
+    @Test
+    void kpiPnlIsTheTotalPlOfMsInvestmentsAndEqualsTheSumOfTheSlicePnls() {
+        when(investments.fetchPortfolioSummary(any())).thenReturn(CompletableFuture.completedFuture(Map.of(
+                "byCurrency", List.of(
+                        Map.of("currency", "ARS", "totalValue", "1000000.00", "totalCost", "800000.00",
+                                "totalPl", "199999.99", "plPercent", "25.0000",
+                                "breakdown", List.of(Map.of("assetType", "STOCK", "totalValue", "1000000.00",
+                                        "totalCost", "800000.00", "totalPl", "199999.99",
+                                        "percentage", "100.0000", "count", 2))),
+                        Map.of("currency", "USD", "totalValue", "100.00", "totalCost", "120.00",
+                                "totalPl", "-20.01", "plPercent", "-16.6700",
+                                "breakdown", List.of(Map.of("assetType", "CEDEAR", "totalValue", "100.00",
+                                        "totalCost", "120.00", "totalPl", "-20.01",
+                                        "percentage", "100.0000", "count", 1)))))));
+        when(investments.fetchFxRate(eq(CurrencyView.USD_MEP), any())).thenReturn(CompletableFuture.completedFuture(MEP));
+
+        InvestmentsBffData data = inArs();
+
+        InvestmentsKpis kpis = data.kpis().data();
+        BigDecimal slicePnls = data.composition().data().stream()
+                .map(slice -> slice.pnl().amount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(kpis.pnl().amount()).isEqualByComparingTo("175987.99");
+        assertThat(kpis.pnl().amount()).isEqualByComparingTo(slicePnls);
+        assertThat(kpis.pnlPct()).isEqualByComparingTo("18.64");
     }
 
     @Test
