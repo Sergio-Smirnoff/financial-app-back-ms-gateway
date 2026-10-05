@@ -7,8 +7,8 @@
       "totalPl": "486014.29",
       "plPercent": "4.7800",
       "breakdown": [
-        { "assetType": "BOND", "totalValue": "904779.00", "percentage": "8.4900" },
-        { "assetType": "CEDEAR", "totalValue": "9757113.60", "percentage": "91.5100" }
+        { "assetType": "BOND", "totalValue": "904779.00", "totalCost": "986380.86", "totalPl": "-81601.86", "percentage": "8.4900", "count": 1 },
+        { "assetType": "CEDEAR", "totalValue": "9757113.60", "totalCost": "9189497.45", "totalPl": "567616.15", "percentage": "91.5100", "count": 5 }
       ]
     }
   ]

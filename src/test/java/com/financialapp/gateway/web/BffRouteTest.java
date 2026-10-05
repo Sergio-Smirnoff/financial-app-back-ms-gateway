@@ -3,12 +3,16 @@ package com.financialapp.gateway.web;
 import com.financialapp.gateway.domain.common.model.AccessToken;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
+import com.financialapp.gateway.domain.model.bff.InvestmentsBffData;
+import com.financialapp.gateway.domain.model.bff.MoneyFigure;
 import com.financialapp.gateway.domain.model.bff.OverviewBffData;
 import com.financialapp.gateway.domain.model.bff.SettingsBffData;
 import com.financialapp.gateway.domain.model.bff.TransactionQuery;
 import com.financialapp.gateway.domain.model.bff.TransactionsBffData;
 import com.financialapp.gateway.domain.model.composition.ObservedAt;
 import com.financialapp.gateway.domain.model.composition.Section;
+import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.usecase.bff.*;
 import com.financialapp.gateway.web.controller.bff.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -136,5 +141,70 @@ class BffRouteTest {
                 .expectStatus().isOk();
 
         verify(getSettingsBffUseCase).execute(new UserId(1L), Optional.empty());
+    }
+
+    @Test
+    void investmentsRouteSerialisesTheSliceFiguresAndThePositionType() {
+        ObservedAt stamp = ObservedAt.now(Clock.systemUTC());
+        AssetTypeSlice bonds = new AssetTypeSlice("BOND", "BOND",
+                MoneyFigure.of(new BigDecimal("904779.00"), Currency.ARS),
+                MoneyFigure.of(new BigDecimal("986380.86"), Currency.ARS),
+                MoneyFigure.of(new BigDecimal("-81601.86"), Currency.ARS),
+                new BigDecimal("-8.27"), new BigDecimal("8.49"), 1);
+        PositionRow row = new PositionRow(7L, "AO29", "Bono", new BigDecimal("687"), null, null, null, null,
+                BigDecimal.ZERO, "017", "BOND");
+        when(getInvestmentsBffUseCase.execute(any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(new InvestmentsBffData(
+                        Section.ok(List.of(), stamp), Section.ok(InvestmentsKpis.empty(), stamp),
+                        Section.ok(List.of(), stamp), Section.ok(List.of(row), stamp),
+                        Section.ok(List.of(bonds), stamp), Section.ok(List.of(), stamp),
+                        Section.ok(List.of(), stamp))));
+
+        webTestClient.get().uri("/api/v1/bff/investments")
+                .header("X-User-Id", "1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.data.composition.data[0].label").isEqualTo("BOND")
+                .jsonPath("$.data.composition.data[0].assetType").isEqualTo("BOND")
+                .jsonPath("$.data.composition.data[0].amount.amount").isEqualTo("904779.00")
+                .jsonPath("$.data.composition.data[0].cost.amount").isEqualTo("986380.86")
+                .jsonPath("$.data.composition.data[0].pnl.amount").isEqualTo("-81601.86")
+                .jsonPath("$.data.composition.data[0].pnlPct").isEqualTo(-8.27)
+                .jsonPath("$.data.composition.data[0].pct").isEqualTo(8.49)
+                .jsonPath("$.data.composition.data[0].count").isEqualTo(1)
+                .jsonPath("$.data.positions.data[0].assetType").isEqualTo("BOND");
+    }
+
+    @Test
+    void investmentsRouteMapsAKnownRangeSelector() {
+        assertThat(rangeRequestedBy("/api/v1/bff/investments?range=1A")).isEqualTo(HistoryRange.ONE_YEAR);
+    }
+
+    @Test
+    void investmentsRouteDefaultsAMissingRangeToOneMonth() {
+        assertThat(rangeRequestedBy("/api/v1/bff/investments")).isEqualTo(HistoryRange.ONE_MONTH);
+    }
+
+    @Test
+    void investmentsRouteFallsBackToOneMonthOnAnUnknownRange() {
+        assertThat(rangeRequestedBy("/api/v1/bff/investments?range=nonsense")).isEqualTo(HistoryRange.ONE_MONTH);
+    }
+
+    private HistoryRange rangeRequestedBy(String uri) {
+        ObservedAt stamp = ObservedAt.now(Clock.systemUTC());
+        InvestmentsBffData empty = new InvestmentsBffData(
+                Section.ok(List.of(), stamp), Section.ok(InvestmentsKpis.empty(), stamp),
+                Section.ok(List.of(), stamp), Section.ok(List.of(), stamp), Section.ok(List.of(), stamp),
+                Section.ok(List.of(), stamp), Section.ok(List.of(), stamp));
+        when(getInvestmentsBffUseCase.execute(any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(empty));
+
+        webTestClient.get().uri(uri).header("X-User-Id", "1")
+                .exchange().expectStatus().isOk();
+
+        ArgumentCaptor<HistoryRange> ranges = ArgumentCaptor.forClass(HistoryRange.class);
+        verify(getInvestmentsBffUseCase).execute(any(), any(), any(), ranges.capture());
+        return ranges.getValue();
     }
 }

@@ -3,7 +3,9 @@ package com.financialapp.gateway.application.bff.impl;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
 import com.financialapp.gateway.domain.gateway.NotificationsGateway;
+import com.financialapp.gateway.domain.model.bff.AssetTypeTotals;
 import com.financialapp.gateway.domain.model.bff.BffDomainModels.*;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.bff.InvestmentsBffData;
 import com.financialapp.gateway.domain.model.bff.PortfolioSummary;
 import com.financialapp.gateway.domain.model.bff.PortfolioValuePoint;
@@ -60,7 +62,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
     }
 
     @Override
-    public CompletableFuture<InvestmentsBffData> execute(UserId userId, CurrencyView currencyView, String secondary) {
+    public CompletableFuture<InvestmentsBffData> execute(UserId userId, CurrencyView currencyView, String secondary, HistoryRange range) {
         LocalDate today = LocalDate.now(clock);
 
         CompletableFuture<Optional<FxRate>> fxRateFuture = currencyView != CurrencyView.ARS ?
@@ -70,7 +72,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                 .thenApply(PortfolioFigures::summary);
         CompletableFuture<Optional<FxRate>> summaryRateFuture = summaryFuture.thenCompose(summary ->
                 PortfolioFigures.usdRate(summary.needsUsdRate(), currencyView, fxRateFuture, investments, today));
-        CompletableFuture<List<PortfolioValuePoint>> evolutionFuture = investments.fetchPortfolioEvolution(userId)
+        CompletableFuture<List<PortfolioValuePoint>> evolutionFuture = investments.fetchPortfolioEvolution(userId, range)
                 .thenApply(PortfolioFigures::evolution);
         CompletableFuture<Optional<FxRate>> evolutionRateFuture = evolutionFuture.thenCompose(points ->
                 PortfolioFigures.usdRate(points.stream().anyMatch(point -> point.marketValue().needsUsdRate()),
@@ -105,7 +107,7 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                         summaryFuture.thenCombine(summaryRateFuture, (summary, rate) -> {
                             BigDecimal marketValue = BffMoneyConverter.toArs(summary.marketValue(), rate);
                             BigDecimal cost = BffMoneyConverter.toArs(summary.cost(), rate);
-                            BigDecimal pnl = marketValue.subtract(cost);
+                            BigDecimal pnl = BffMoneyConverter.toArs(summary.pnl(), rate);
                             return new InvestmentsKpis(
                                     BffMoneyConverter.convert(marketValue, Currency.ARS, currencyView, secondary, rate),
                                     BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, rate),
@@ -137,22 +139,30 @@ public class GetInvestmentsBffUseCaseImpl implements GetInvestmentsBffUseCase {
                                     BffMoneyConverter.convert(holding.decimal("currentPrice"), currency, currencyView, secondary, fx),
                                     BffMoneyConverter.convert(holding.decimal("currentValue"), currency, currencyView, secondary, fx),
                                     BffMoneyConverter.convert(holding.decimal("plAmount"), currency, currencyView, secondary, fx),
-                                    holding.decimal("plPercent"), holding.text("bankNumber"));
+                                    holding.decimal("plPercent"), holding.text("bankNumber"),
+                                    holding.text("assetType"));
                         }).toList()),
                         List.of(), clock),
                 List.of());
 
-        CompletableFuture<Section<List<CompositionSlice>>> compositionSec = applyBudget(
+        CompletableFuture<Section<List<AssetTypeSlice>>> compositionSec = applyBudget(
                 Section.guard(
                         summaryFuture.thenCombine(summaryRateFuture, (summary, rate) -> {
                             BigDecimal total = BffMoneyConverter.toArs(summary.marketValue(), rate);
-                            return summary.marketValueByAssetType().entrySet().stream()
+                            return summary.byAssetType().entrySet().stream()
                                     .sorted(Map.Entry.comparingByKey())
                                     .map(slice -> {
-                                        BigDecimal amount = BffMoneyConverter.toArs(slice.getValue(), rate);
-                                        return new CompositionSlice(slice.getKey(),
+                                        AssetTypeTotals totals = slice.getValue();
+                                        BigDecimal amount = BffMoneyConverter.toArs(totals.marketValue(), rate);
+                                        BigDecimal cost = BffMoneyConverter.toArs(totals.cost(), rate);
+                                        BigDecimal pnl = BffMoneyConverter.toArs(totals.pnl(), rate);
+                                        return new AssetTypeSlice(slice.getKey(), slice.getKey(),
                                                 BffMoneyConverter.convert(amount, Currency.ARS, currencyView, secondary, rate),
-                                                Percentages.percentOf(amount, total));
+                                                BffMoneyConverter.convert(cost, Currency.ARS, currencyView, secondary, rate),
+                                                BffMoneyConverter.convert(pnl, Currency.ARS, currencyView, secondary, rate),
+                                                Percentages.percentOf(pnl, cost),
+                                                Percentages.percentOf(amount, total),
+                                                totals.count());
                                     })
                                     .toList();
                         }),

@@ -1,6 +1,7 @@
 package com.financialapp.gateway.application.bff.impl;
 
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
+import com.financialapp.gateway.domain.model.bff.AssetTypeTotals;
 import com.financialapp.gateway.domain.model.bff.CurrencyAmounts;
 import com.financialapp.gateway.domain.model.bff.PortfolioSummary;
 import com.financialapp.gateway.domain.model.bff.PortfolioValuePoint;
@@ -27,18 +28,24 @@ final class PortfolioFigures {
         DownstreamPayload payload = new DownstreamPayload(SUMMARY_SOURCE, raw);
         CurrencyAmounts marketValue = CurrencyAmounts.none();
         CurrencyAmounts cost = CurrencyAmounts.none();
-        Map<String, CurrencyAmounts> byAssetType = new HashMap<>();
+        CurrencyAmounts pnl = CurrencyAmounts.none();
+        Map<String, AssetTypeTotals> byAssetType = new HashMap<>();
         for (DownstreamPayload bucket : payload.list("byCurrency")) {
             Currency currency = Currency.of(bucket.text("currency"));
             marketValue = marketValue.plus(currency, bucket.decimal("totalValue"));
             cost = cost.plus(currency, bucket.decimal("totalCost"));
+            pnl = pnl.plus(currency, bucket.decimal("totalPl"));
             for (DownstreamPayload slice : bucket.list("breakdown")) {
                 byAssetType.merge(slice.text("assetType"),
-                        CurrencyAmounts.none().plus(currency, slice.decimal("totalValue")),
-                        CurrencyAmounts::plus);
+                        new AssetTypeTotals(
+                                CurrencyAmounts.none().plus(currency, slice.decimal("totalValue")),
+                                CurrencyAmounts.none().plus(currency, slice.decimal("totalCost")),
+                                CurrencyAmounts.none().plus(currency, slice.decimal("totalPl")),
+                                Math.toIntExact(slice.longValue("count"))),
+                        AssetTypeTotals::plus);
             }
         }
-        return new PortfolioSummary(marketValue, cost, byAssetType);
+        return new PortfolioSummary(marketValue, cost, pnl, byAssetType);
     }
 
     static List<PortfolioValuePoint> evolution(List<Map<String, Object>> raw) {

@@ -60,6 +60,7 @@ public class BffWebResponses {
 
     public record ImportHealthRowResponse(String cbu, String alias, Instant lastImportAt, Long daysSince, String status) {}
     public record CompositionSliceResponse(String label, MoneyView amount, BigDecimal pct) {}
+    public record AssetTypeSliceResponse(String label, String assetType, MoneyView amount, MoneyView cost, MoneyView pnl, BigDecimal pnlPct, BigDecimal pct, Integer count) {}
     public record CalendarEntryResponse(LocalDate date, String label, MoneyView amount, String kind) {}
 
     public record TransactionsSummaryResponse(MoneyView income, MoneyView expense, MoneyView net, Long count) {}
@@ -87,7 +88,7 @@ public class BffWebResponses {
     public record InvestmentsKpisResponse(MoneyView marketValue, MoneyView cost, MoneyView pnl, BigDecimal pnlPct) {}
 
     public record EvolutionPointResponse(LocalDate date, MoneyView marketValue, MoneyView cost) {}
-    public record PositionRowResponse(Long holdingId, String ticker, String name, BigDecimal quantity, MoneyView avgCost, MoneyView price, MoneyView marketValue, MoneyView pnl, BigDecimal pnlPct, String bankNumber) {}
+    public record PositionRowResponse(Long holdingId, String ticker, String name, BigDecimal quantity, MoneyView avgCost, MoneyView price, MoneyView marketValue, MoneyView pnl, BigDecimal pnlPct, String bankNumber, String assetType) {}
     public record OperationRowResponse(Long holdingId, String ticker, String kind, LocalDate date, BigDecimal quantity, MoneyView amount) {}
     public record AlertRowResponse(Long id, String title, String message, Instant createdAt, Boolean read) {}
 

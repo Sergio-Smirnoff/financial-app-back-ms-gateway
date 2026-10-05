@@ -3,6 +3,7 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
 import com.financialapp.gateway.domain.gateway.InvestmentsGateway;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
@@ -124,9 +125,9 @@ public class InvestmentsGatewayImpl implements InvestmentsGateway {
     }
 
     @Override
-    public CompletableFuture<List<Map<String, Object>>> fetchPortfolioEvolution(UserId userId) {
+    public CompletableFuture<List<Map<String, Object>>> fetchPortfolioEvolution(UserId userId, HistoryRange range) {
         return webClient.get()
-                .uri(investmentsUrl + "/api/v1/investments/portfolio/evolution")
+                .uri(investmentsUrl + "/api/v1/investments/portfolio/evolution?days={days}", range.days())
                 .header("X-User-Id", userId.value().toString())
                 .retrieve()
                 .bodyToMono(LIST_MAP_TYPE)

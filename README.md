@@ -192,6 +192,17 @@ Gateway-rendered responses (auth 401 `unauthorized`, rate-limit 429 `rate_limit_
 upstream failures `upstream_unavailable`) and the BFF endpoints use the shared envelope
 `{ status, title, code, message, data }` from `commons-core` (built from `financial-app-parent`).
 
+## Recent changes (2026-10, one-screen Part A)
+
+| Change | Detail |
+|--------|--------|
+| `range` on the investments BFF | `GET /api/v1/bff/investments` accepts `range=1M\|3M\|1A`, modelled by the domain enum `HistoryRange`. `HistoryRange.fromSelector` trims the selector and matches it case-insensitively (`1m` is accepted), returns an empty `Optional` for unknown input, and the controller falls back to `1M` when `range` is missing or unknown. |
+| `PositionRow.assetType` | Each row in the investments `positions` section now carries the holding's `assetType`. |
+| `AssetTypeSlice` composition | The investments `composition` section is a list of `AssetTypeSlice`: one entry per asset type with value, cost, P&L, P&L %, share of the portfolio and holding count. Bancos still uses `CompositionSlice`. |
+| P&L source | Per-type and KPI P&L come from ms-investments' `totalPl` (at bucket and breakdown level), converted and merged by currency. The gateway no longer derives P&L as value − cost. A bucket or breakdown without `totalPl` makes every section built from the portfolio summary `UNAVAILABLE` (investments KPIs and composition, Overview net worth and breakdown) instead of falling back to a derived figure. |
+| Percentages exception | This is a deliberate exception to taking figures from the owning service: `pnlPct` and the slice `pct` are computed in the gateway with `Percentages.percentOf`, because they only make sense after the cross-currency merge and conversion that happen here. |
+| **Deploy order** | This gateway needs ms-investments from the same release, because it reads `totalCost` and `totalPl` at both bucket and breakdown level, plus the breakdown `count`. Deploy ms-investments first; otherwise the investments KPIs and composition sections and the Overview net-worth and breakdown sections render `UNAVAILABLE`. |
+
 ## Endpoints / Routes
 
 | Method | Path | Handled by | Purpose |
@@ -201,7 +212,7 @@ upstream failures `upstream_unavailable`) and the BFF endpoints use the shared e
 | `GET` | `/api/v1/bff/transactions` | `TransactionsBffController` | Movimientos Page BFF composition (forwards filters & method/q, derives page metadata) |
 | `GET` | `/api/v1/bff/transactions/{id}` | `TransactionsBffController` | Transaction detail with import run lookup |
 | `GET` | `/api/v1/bff/categories` | `CategoriesBffController` | Categorías Page BFF composition |
-| `GET` | `/api/v1/bff/investments` | `InvestmentsBffController` | Inversiones Page BFF composition |
+| `GET` | `/api/v1/bff/investments?range=` | `InvestmentsBffController` | Inversiones Page BFF composition (`range=1M\|3M\|1A` for the evolution chart, default `1M`; positions carry `assetType`; composition is a list of `AssetTypeSlice`) |
 | `GET` | `/api/v1/bff/imports` | `ImportsBffController` | Importaciones Page BFF composition |
 | `GET` | `/api/v1/bff/settings` | `SettingsBffController` | Ajustes Page BFF composition |
 | `GET` | `/api/v1/bff/search?q=` | `SearchBffController` | Global ⌘K search composition |
