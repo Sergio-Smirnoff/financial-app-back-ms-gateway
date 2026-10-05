@@ -2,6 +2,7 @@ package com.financialapp.gateway.infrastructure.gateway.Impl;
 
 import com.financialapp.gateway.domain.common.model.TimeoutPolicy;
 import com.financialapp.gateway.domain.common.model.UserId;
+import com.financialapp.gateway.domain.model.bff.HistoryRange;
 import com.financialapp.gateway.domain.model.currency.Currency;
 import com.financialapp.gateway.domain.model.currency.CurrencyView;
 import com.financialapp.gateway.domain.model.currency.FxRate;
@@ -207,6 +208,23 @@ class InvestmentsGatewayImplTest {
 
         assertThat(path.get()).isEqualTo("/api/v1/investments/portfolio/holdings");
         assertThat(currencies).containsExactly(Currency.ARS, Currency.USD);
+    }
+
+    @Test
+    void portfolioEvolutionAsksForTheRangesDays() {
+        AtomicReference<String> path = new AtomicReference<>();
+        AtomicReference<String> query = new AtomicReference<>();
+        InvestmentsGatewayImpl gateway = gatewayAnswering(request -> {
+            path.set(request.url().getPath());
+            query.set(request.url().getQuery());
+            return okJson("{\"data\":[{\"date\":\"2026-09-27\",\"totals\":[{\"currency\":\"ARS\",\"totalValue\":\"10\"}]}]}");
+        });
+
+        List<Map<String, Object>> points = gateway.fetchPortfolioEvolution(new UserId(1L), HistoryRange.ONE_YEAR).join();
+
+        assertThat(path.get()).isEqualTo("/api/v1/investments/portfolio/evolution");
+        assertThat(query.get()).isEqualTo("days=365");
+        assertThat(points).singleElement().extracting(m -> m.get("date")).isEqualTo("2026-09-27");
     }
 
     private InvestmentsGatewayImpl gatewayAnswering(ExchangeFunction exchange) {

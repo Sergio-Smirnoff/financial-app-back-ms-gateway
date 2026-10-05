@@ -10,7 +10,7 @@ public record InvestmentsBffData(
         Section<InvestmentsKpis> kpis,
         Section<List<EvolutionPoint>> evolution,
         Section<List<PositionRow>> positions,
-        Section<List<CompositionSlice>> composition,
+        Section<List<AssetTypeSlice>> composition,
         Section<List<OperationRow>> recentOperations,
         Section<List<AlertRow>> alerts
 ) {}

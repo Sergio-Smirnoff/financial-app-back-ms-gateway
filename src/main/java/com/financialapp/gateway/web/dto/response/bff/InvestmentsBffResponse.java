@@ -10,7 +10,7 @@ public record InvestmentsBffResponse(
         SectionResponse<InvestmentsKpisResponse> kpis,
         SectionResponse<List<EvolutionPointResponse>> evolution,
         SectionResponse<List<PositionRowResponse>> positions,
-        SectionResponse<List<CompositionSliceResponse>> composition,
+        SectionResponse<List<AssetTypeSliceResponse>> composition,
         SectionResponse<List<OperationRowResponse>> recentOperations,
         SectionResponse<List<AlertRowResponse>> alerts
 ) {}
